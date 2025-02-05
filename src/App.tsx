@@ -1,35 +1,34 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+
+import "./App.css";
+import { AuthData, useOkto } from "@okto_web3/react-sdk";
+import { Routes, Route } from "react-router-dom";
+import LoginPage from "./LoginPage";
+import TransferNFT from "./pages/TransferNFT";
+import CreateNft from "./pages/CreateNft";
+import RawTransaction from "./pages/RawTransaction";
+import Homepage from "./Homepage";
+import TransferTokens from "./pages/TransferTokens";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const oktoClient = useOkto();
+
+  //check if user is already logged in 
+  const user = oktoClient.user;
+  console.log(oktoClient);
 
   return (
     <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
+      <Routes>
+        <Route path="/" element={<LoginPage/>} />
+        <Route path="/home" element={<Homepage />} />
+
+        <Route path="/transfertoken" element={<TransferTokens />} />
+        <Route path="/transfernft" element={<TransferNFT />} />
+        <Route path="/createnftcollection" element={<CreateNft />} />
+        <Route path="/rawtransaction" element={<RawTransaction />} />
+      </Routes>
     </>
-  )
+  );
 }
 
-export default App
+export default App;
