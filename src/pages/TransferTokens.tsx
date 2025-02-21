@@ -19,15 +19,21 @@ function TransferTokens() {
   const handleSubmit = async () => {
     try {
       const transferParams = {
+        caip2Id: networkName,
+        recipientWalletAddress: recipientAddress as `0x{string}`,
+        tokenAddress: tokenAddress as `0x{string}`,
         amount: Number(quantity),
-        recipient: recipientAddress as Address,
-        token: tokenAddress as Address,
-        chain: networkName,
       };
+
 
       console.log("Transfer params: ", transferParams);
 
-      const userOpTmp = await tokenTransfer(oktoClient, transferParams);
+      const userOpTmp = await tokenTransfer(oktoClient, {
+        caip2Id: networkName,
+        recipient: recipientAddress as Address ,
+        token: tokenAddress as Address,
+        amount: Number(quantity),
+      });
       setUserOp(userOpTmp);
       setUserOpString(JSON.stringify(userOpTmp, null, 2));
     } catch (error: any) {

@@ -1,11 +1,11 @@
 "use client";
 import { useState } from "react";
-import { useOkto, evmRawTransaction, Address } from "@okto_web3/react-sdk";
+import { useOkto, evmRawTransaction, Address, UserOp } from "@okto_web3/react-sdk";
 import { useNavigate } from "react-router-dom";
 
 function EVMRawTransaction() {
   const oktoClient = useOkto();
-  const [networkId, setNetworkId] = useState("");
+  const [caip2Id, setcaip2Id] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [value, setValue] = useState("");
@@ -20,7 +20,7 @@ function EVMRawTransaction() {
   const handleCreateUserOp = async () => {
     try {
       const rawTransactionIntentParams = {
-        networkId,
+        caip2Id: caip2Id,
         transaction: {
           from: from as Address,
           to: to as Address,
@@ -78,7 +78,7 @@ function EVMRawTransaction() {
   const handleEVMRawTransaction = async () => {
     try {
       const rawTransactionIntentParams = {
-        networkId,
+        caip2Id,
         transaction: {
           from: from as Address,
           to: to as Address,
@@ -94,7 +94,7 @@ function EVMRawTransaction() {
         oktoClient,
         rawTransactionIntentParams
       );
-      const signedOp = await oktoClient.signUserOp(createdUserOp);
+      const signedOp = await oktoClient.signUserOp(createdUserOp as UserOp);
       const result = await oktoClient.executeUserOp(signedOp);
       const formattedResult = JSON.stringify(result, null, 2);
       setResponseMessage(
@@ -132,8 +132,8 @@ function EVMRawTransaction() {
         <div className="flex flex-col items-center bg-black p-6 rounded-lg shadow-xl border border-gray-800">
           <input
             className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-            value={networkId}
-            onChange={(e) => setNetworkId(e.target.value)}
+            value={caip2Id}
+            onChange={(e) => setcaip2Id(e.target.value)}
             placeholder="Enter Network (ChainId/CAIP2)"
           />
 
