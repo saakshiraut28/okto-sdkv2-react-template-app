@@ -14,8 +14,8 @@ export default function LoginPage() {
    * 3. If token exists, attempt authentication with Okto
    */
   useEffect(() => {
-    if (oktoClient.user) {
-      console.log("user exists");
+    if (oktoClient.isLoggedIn()) {
+      console.log("logged in");
       navigate("/home");
       return;
     }
@@ -26,7 +26,7 @@ export default function LoginPage() {
       console.log("storedToken" , storedToken);
       handleAuthenticate(storedToken);
     }
-  }, [oktoClient.user]);
+  }, [oktoClient.isLoggedIn()]);
 
 
 
