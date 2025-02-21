@@ -3,18 +3,8 @@ import "./index.css";
 import App from "./App.tsx";
 import { GoogleOAuthProvider } from "@react-oauth/google";
 import { OktoProvider } from "@okto_web3/react-sdk";
-import React, {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  StrictMode,
-} from "react";
-import { Buffer } from "buffer";
+import React, { StrictMode } from "react";
 import { BrowserRouter } from "react-router-dom";
-
-// Ensure Buffer is available globally
-(globalThis as any).Buffer = Buffer;
 
 // Define the config type and context type
 const defaultConfig = {
@@ -25,13 +15,14 @@ const defaultConfig = {
 
 const config = {
   environment: import.meta.env.VITE_ENVIRONMENT || defaultConfig.environment,
-  vendorPrivKey:
+  clientPrivateKey:
     import.meta.env.VITE_VENDOR_PRIVATE_KEY || defaultConfig.vendorPrivKey,
-  vendorSWA: import.meta.env.VITE_VENDOR_SWA,
+  clientSWA: import.meta.env.VITE_VENDOR_SWA,
 };
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
-const STORAGE_KEY = "okto_config";
+console.log(GOOGLE_CLIENT_ID);
+console.log(config);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
