@@ -1,6 +1,6 @@
 import { useOkto } from "@okto_web3/react-sdk";
-import { GoogleLogin, googleLogout } from "@react-oauth/google";
-import { useEffect, useState } from "react";
+import { GoogleLogin } from "@react-oauth/google";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 export default function LoginPage() {
@@ -21,14 +21,12 @@ export default function LoginPage() {
     }
 
     // If not authenticated with Okto, check for stored Google token
-    const storedToken = localStorage.getItem('googleIdToken');
+    const storedToken = localStorage.getItem("googleIdToken");
     if (storedToken) {
-      console.log("storedToken" , storedToken);
+      console.log("storedToken", storedToken);
       handleAuthenticate(storedToken);
     }
   }, [oktoClient.isLoggedIn()]);
-
-
 
   // Authenticates user with Okto using Google ID token
   const handleAuthenticate = async (idToken: string) => {
@@ -43,22 +41,20 @@ export default function LoginPage() {
       console.error("Authentication failed:", error);
 
       // Remove invalid token from storage
-      localStorage.removeItem('googleIdToken');
+      localStorage.removeItem("googleIdToken");
     }
   };
 
-  
-    // Handles successful Google login
-    // 1. Stores the ID token in localStorage
-    // 2. Initiates Okto authentication
+  // Handles successful Google login
+  // 1. Stores the ID token in localStorage
+  // 2. Initiates Okto authentication
   const handleGoogleLogin = async (credentialResponse: any) => {
     const idToken = credentialResponse.credential || "";
     if (idToken) {
-      localStorage.setItem('googleIdToken', idToken);
+      localStorage.setItem("googleIdToken", idToken);
       handleAuthenticate(idToken);
     }
   };
-
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-6 md:p-12 bg-gray-900">
@@ -78,8 +74,8 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
-      <button 
-        onClick={() => navigate("/home")} 
+      <button
+        onClick={() => navigate("/home")}
         className="px-6 py-3 mt-4 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors text-center font-medium"
       >
         Go to homepage

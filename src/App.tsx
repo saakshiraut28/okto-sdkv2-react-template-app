@@ -1,18 +1,17 @@
-
+import { useOkto } from "@okto_web3/react-sdk";
+import { Route, Routes } from "react-router-dom";
 import "./App.css";
-import { AuthData, useOkto } from "@okto_web3/react-sdk";
-import { Routes, Route } from "react-router-dom";
+import Homepage from "./Homepage";
 import LoginPage from "./LoginPage";
-import TransferNFT from "./pages/TransferNFT";
 import CreateNft from "./pages/CreateNft";
 import RawTransaction from "./pages/RawTransaction";
-import Homepage from "./Homepage";
+import TransferNFT from "./pages/TransferNFT";
 import TransferTokens from "./pages/TransferTokens";
 
 function App() {
   const oktoClient = useOkto();
 
-  //check if user is already logged in 
+  //check if user is already logged in
   const isloggedIn = oktoClient.isLoggedIn();
   console.log(isloggedIn);
   console.log(oktoClient);
@@ -20,7 +19,7 @@ function App() {
   return (
     <>
       <Routes>
-        <Route path="/" element={<LoginPage/>} />
+        <Route path="/" element={<LoginPage />} />
         <Route path="/home" element={<Homepage />} />
 
         <Route path="/transfertoken" element={<TransferTokens />} />

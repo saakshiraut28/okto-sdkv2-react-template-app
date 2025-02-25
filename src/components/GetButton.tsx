@@ -1,5 +1,5 @@
-import React, { useState } from "react";
 import { useOkto } from "@okto_web3/react-sdk";
+import React, { useState } from "react";
 
 interface GetButtonProps {
   title: string;
@@ -41,7 +41,9 @@ const GetButton: React.FC<GetButtonProps> = ({ title, apiFn }) => {
         <div className="fixed inset-0 bg-gray-800 bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-black rounded-lg w-11/12 max-w-2xl p-6 shadow-xl">
             <div className="flex justify-between items-center border-b border-gray-700 pb-2 mb-4">
-              <h2 className="text-lg font-semibold text-white">{title} Result</h2>
+              <h2 className="text-lg font-semibold text-white">
+                {title} Result
+              </h2>
               <button
                 className="text-gray-400 hover:text-gray-200 transition-colors text-2xl"
                 onClick={handleClose}
