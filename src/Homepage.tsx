@@ -1,4 +1,3 @@
-import GetButton from "./components/GetButton";
 import {
   getAccount,
   getChains,
@@ -11,12 +10,12 @@ import {
 } from "@okto_web3/react-sdk";
 import { googleLogout } from "@react-oauth/google";
 import { useNavigate } from "react-router-dom";
+import GetButton from "./components/GetButton";
 
 export default function Homepage() {
   const oktoClient = useOkto();
   const navigate = useNavigate();
   const isloggedIn = oktoClient.isLoggedIn();
-  const envconfig = oktoClient.env;
   const userSWA = oktoClient.userSWA;
 
   // handles user logout process
@@ -28,6 +27,7 @@ export default function Homepage() {
       navigate("/");
       return { result: "logout success" };
     } catch (error) {
+      console.error("Logout failed:", error);
       return { result: "logout failed" };
     }
   }
@@ -39,12 +39,12 @@ export default function Homepage() {
           Okto v2 SDK Demo
         </h1>
 
-        <div className="space-y-4">
+        {/* <div className="space-y-4">
           <h2 className="text-violet-900 font-bold text-2xl">Env Config</h2>
           <pre className="whitespace-pre-wrap break-words bg-white p-6 rounded-xl text-gray-800 w-full border border-violet-200 shadow-lg">
             {isloggedIn ? JSON.stringify(envconfig, null, 2) : "not signed in"}
           </pre>
-        </div>
+        </div> */}
         <div className="space-y-4">
           <h2 className="text-violet-900 font-bold text-2xl">User Details</h2>
           <pre className="whitespace-pre-wrap break-words bg-white p-6 rounded-xl text-gray-800 w-full border border-violet-200 shadow-lg">

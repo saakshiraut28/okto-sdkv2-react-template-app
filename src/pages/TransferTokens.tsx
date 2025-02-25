@@ -25,12 +25,11 @@ function TransferTokens() {
         amount: Number(quantity),
       };
 
-
       console.log("Transfer params: ", transferParams);
 
       const userOpTmp = await tokenTransfer(oktoClient, {
         caip2Id: networkName,
-        recipient: recipientAddress as Address ,
+        recipient: recipientAddress as Address,
         token: tokenAddress as Address,
         amount: Number(quantity),
       });

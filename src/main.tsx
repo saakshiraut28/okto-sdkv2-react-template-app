@@ -1,23 +1,15 @@
-import { createRoot } from "react-dom/client";
-import "./index.css";
-import App from "./App.tsx";
+import { OktoClientConfig, OktoProvider } from "@okto_web3/react-sdk";
 import { GoogleOAuthProvider } from "@react-oauth/google";
-import { OktoProvider } from "@okto_web3/react-sdk";
-import React, { StrictMode } from "react";
+import { StrictMode } from "react";
+import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
+import App from "./App.tsx";
+import "./index.css";
 
-// Define the config type and context type
-const defaultConfig = {
-  environment: "sandbox",
-  vendorPrivKey: "",
-  vendorSWA: "",
-};
-
-const config = {
-  environment: import.meta.env.VITE_ENVIRONMENT || defaultConfig.environment,
-  clientPrivateKey:
-    import.meta.env.VITE_VENDOR_PRIVATE_KEY || defaultConfig.vendorPrivKey,
-  clientSWA: import.meta.env.VITE_VENDOR_SWA,
+const config: OktoClientConfig = {
+  environment: import.meta.env.VITE_OKTO_ENVIRONMENT,
+  clientPrivateKey: import.meta.env.VITE_CLIENT_PRIVATE_KEY,
+  clientSWA: import.meta.env.VITE_CLIENT_SWA,
 };
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
