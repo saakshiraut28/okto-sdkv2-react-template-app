@@ -34,6 +34,10 @@ export default function LoginPage() {
       const user = await oktoClient.loginUsingOAuth({
         idToken: idToken,
         provider: "google",
+      } , (session: any) => {
+        // Store the session info securely
+        console.log("session", session);
+        localStorage.setItem("okto_session", JSON.stringify(session));
       });
       console.log("Authenticated with Okto:", user);
       navigate("/home");
