@@ -74,6 +74,7 @@ export default function Homepage() {
           <h2 className="text-violet-900 font-semibold text-2xl mb-6">
             Explorer Functions
           </h2>
+          <p className="font-regular text-lg mb-6">For a complete list of supported networks, check out <a className="underline text-indigo-700" href="https://docs.okto.tech/docs/supported-chains" target="_blank">Supported Chains & Tokens Guide</a>.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <GetButton title="Okto Log out" apiFn={handleLogout} />
             <GetButton title="getAccount" apiFn={getAccount} />
