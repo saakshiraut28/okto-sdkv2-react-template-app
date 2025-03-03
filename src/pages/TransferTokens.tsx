@@ -17,6 +17,7 @@ function TransferTokens() {
 
   const [chains, setChains] = useState<any[]>([]);
   const [networkName, setNetworkName] = useState("");
+  const [networkCaipId, setNetworkCaipId] = useState<string>("");
   const [tokenAddress, setTokenAddress] = useState("");
   const [tokenDecimals, setTokenDecimals] = useState(18);
   const [tokenSymbol, setTokenSymbol] = useState("");
@@ -46,7 +47,7 @@ function TransferTokens() {
   // Fetch tokens when network changes
   useEffect(() => {
     async function fetchTokens() {
-      if (!networkName) {
+      if (!networkCaipId) {
         setTokens([]);
         return;
       }
@@ -55,17 +56,20 @@ function TransferTokens() {
       setTokenError(null);
 
       try {
-        const response = await getTokens(oktoClient);
+        const response = await getTokens(oktoClient); // Fetch all tokens
 
-        const tokensList: TokenOption[] = response.map((token: any) => ({
-          address: token.address,
-          symbol: token.symbol,
-          name: token.name,
-          decimals: token.decimals,
-          caipId: token.caipId
-        }));
+        // Filter tokens that match the selected network's caipId
+        const filteredTokens = response
+          .filter((token: any) => token.caipId === networkCaipId)
+          .map((token: any) => ({
+            address: token.address,
+            symbol: token.symbol,
+            name: token.name,
+            decimals: token.decimals,
+            caipId: token.caipId,
+          }));
 
-        setTokens(tokensList);
+        setTokens(filteredTokens);
       } catch (err: any) {
         console.error("Error fetching tokens:", err);
         setTokenError(err.message || "Failed to fetch tokens");
@@ -76,7 +80,17 @@ function TransferTokens() {
     }
 
     fetchTokens();
-  }, [networkName, oktoClient]);
+  }, [networkCaipId, oktoClient]);
+
+  const handleNetworkChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedCaipId = e.target.value;
+    const selectedChain = chains.find(chain => chain.caipId === selectedCaipId);
+
+    if (selectedChain) {
+      setNetworkName(selectedChain.networkName); // Set network name
+      setNetworkCaipId(selectedChain.caipId); // Set network caipId
+    }
+  };
 
   const handleTokenSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const selectedSymbol = e.target.value;
@@ -147,17 +161,17 @@ function TransferTokens() {
         <div className="flex flex-col items-center bg-black p-6 rounded-lg shadow-xl border border-gray-800">
           {/* Network Selection */}
           <select
-            className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white"
-            value={networkName}
-            onChange={(e) => setNetworkName(e.target.value)}
+            className="w-full p-3 mb-1 bg-gray-800 border border-gray-700 rounded text-white"
+            value={networkCaipId}
+            onChange={handleNetworkChange} // Call function when network is selected
           >
             <option value="" disabled>Select a Network</option>
             {chains.map((chain) => (
               <option key={chain.chainId} value={chain.caipId}>
-                {chain.networkName}
+                {`${chain.networkName} - (${chain.caipId})`}
               </option>
             ))}
-          </select>
+          </select>;
 
           {/* Token Selection */}
           <select
@@ -192,7 +206,6 @@ function TransferTokens() {
             readOnly
             placeholder="Selected Token Address"
           />
-
 
           {/* Quantity with token symbol indicator */}
           <div className="w-full mb-4 relative">
