@@ -8,8 +8,8 @@ import "./index.css";
 
 const config: OktoClientConfig = {
   environment: import.meta.env.VITE_OKTO_ENVIRONMENT,
-  clientPrivateKey: import.meta.env.VITE_CLIENT_PRIVATE_KEY,
-  clientSWA: import.meta.env.VITE_CLIENT_SWA,
+  clientPrivateKey: import.meta.env.VITE_OKTO_CLIENT_PRIVATE_KEY,
+  clientSWA: import.meta.env.VITE_OKTO_CLIENT_SWA,
 };
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
