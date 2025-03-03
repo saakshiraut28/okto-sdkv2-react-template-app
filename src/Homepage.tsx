@@ -43,9 +43,9 @@ export default function Homepage() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-violet-100 to-violet-200 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-4xl mx-auto space-y-8">
-        <h1 className="text-center text-4xl font-bold text-violet-900 mb-12">
+        {/* <h1 className="text-center text-4xl font-bold text-violet-900 mb-12">
           Okto v2 SDK Demo
-        </h1>
+        </h1> */}
 
         {/* <div className="space-y-4">
           <h2 className="text-violet-900 font-bold text-2xl">Env Config</h2>
