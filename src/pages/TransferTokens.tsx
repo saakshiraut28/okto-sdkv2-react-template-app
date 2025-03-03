@@ -1,9 +1,11 @@
 "use client";
-import { useEffect, useState } from "react";
-import { Address, getTokens, tokenTransfer, useOkto } from "@okto_web3/react-sdk";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect, useCallback } from "react";
+import { Address, getOrdersHistory, getTokens, useOkto } from "@okto_web3/react-sdk";
+import { tokenTransfer } from "@okto_web3/react-sdk/userop";
 import { getChains } from '@okto_web3/react-sdk';
+import { useNavigate } from "react-router-dom";
 
+// Types
 interface TokenOption {
   address: string;
   symbol: string;
@@ -12,283 +14,567 @@ interface TokenOption {
   caipId: string;
 }
 
-function TransferTokens() {
-  const oktoClient = useOkto();
+interface ModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  title: string;
+  children: React.ReactNode;
+}
 
-  const [chains, setChains] = useState<any[]>([]);
-  const [networkName, setNetworkName] = useState("");
-  const [networkCaipId, setNetworkCaipId] = useState<string>("");
-  const [tokenAddress, setTokenAddress] = useState("");
-  const [tokenDecimals, setTokenDecimals] = useState(18);
-  const [tokenSymbol, setTokenSymbol] = useState("");
-  const [quantity, setQuantity] = useState("");
-  const [recipientAddress, setRecipientAddress] = useState("");
-  const [modalVisible, setModalVisible] = useState(false);
-  const [modalMessage, setModalMessage] = useState("");
-  const [userOp, setUserOp] = useState<any | null>(null);
-  const [userOpString, setUserOpString] = useState<string>("");
-  const [tokens, setTokens] = useState<TokenOption[]>([]);
-  const [loadingTokens, setLoadingTokens] = useState(false);
-  const [tokenError, setTokenError] = useState<string | null>(null);
+// Components
+const Modal = ({ isOpen, onClose, title, children }: ModalProps) =>
+  !isOpen ? null : (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-xl">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-white">{title}</h2>
+          <button onClick={onClose} className="text-gray-400 hover:text-white">✕</button>
+        </div>
+        <div className="max-h-[70vh] overflow-y-auto">{children}</div>
+      </div>
+    </div>
+  );
+
+const RefreshIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+    stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38" />
+  </svg>
+);
+
+function TwoStepTokenTransfer() {
+  const oktoClient = useOkto();
   const navigate = useNavigate();
 
+  // Form state
+  const [chains, setChains] = useState<any[]>([]);
+  const [tokens, setTokens] = useState<TokenOption[]>([]);
+  const [selectedChain, setSelectedChain] = useState<string>("");
+  const [selectedToken, setSelectedToken] = useState<string>("");
+  const [amount, setAmount] = useState<string>("");
+  const [recipient, setRecipient] = useState<string>("");
+
+  // Transaction state
+  const [jobId, setJobId] = useState<string | null>(null);
+  const [userOp, setUserOp] = useState<any | null>(null);
+  const [signedUserOp, setSignedUserOp] = useState<any | null>(null);
+  const [orderHistory, setOrderHistory] = useState<any | null>(null);
+  const [explorerUrl, setExplorerUrl] = useState<string | null>(null);
+
+  // UI state
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [loadingTokens, setLoadingTokens] = useState(false);
+
+  // Modal states
+  const [activeModal, setActiveModal] = useState<string | null>(null);
+
+  // Helper functions
+  const showModal = (modal: string) => setActiveModal(modal);
+  const closeAllModals = () => setActiveModal(null);
+
+  const resetForm = () => {
+    setSelectedToken("");
+    setAmount("");
+    setRecipient("");
+    setUserOp(null);
+    setSignedUserOp(null);
+    setJobId(null);
+    setOrderHistory(null);
+    setExplorerUrl(null);
+    setError(null);
+    closeAllModals();
+  };
+
+  const validateFormData = () => {
+    const token = tokens.find(t => t.symbol === selectedToken);
+    if (!token) throw new Error("Please select a valid token");
+    if (!amount || isNaN(Number(amount)) || Number(amount) <= 0)
+      throw new Error("Please enter a valid amount");
+    if (!recipient || !recipient.startsWith("0x"))
+      throw new Error("Please enter a valid recipient address");
+
+    return {
+      amount: BigInt(amount),
+      recipient: recipient as Address,
+      token: token.address as Address,
+      caip2Id: selectedChain
+    };
+  };
+
+  // Data fetching
   useEffect(() => {
-    async function fetchChains() {
+    const fetchChains = async () => {
       try {
-        const fetchedChains = await getChains(oktoClient);
-        setChains(fetchedChains);
-      } catch (error) {
+        setChains(await getChains(oktoClient));
+      } catch (error: any) {
         console.error("Error fetching chains:", error);
+        setError(`Failed to fetch chains: ${error.message}`);
       }
-    }
+    };
     fetchChains();
   }, [oktoClient]);
 
-  // Fetch tokens when network changes
   useEffect(() => {
-    async function fetchTokens() {
-      if (!networkCaipId) {
+    const fetchTokens = async () => {
+      if (!selectedChain) {
         setTokens([]);
         return;
       }
 
       setLoadingTokens(true);
-      setTokenError(null);
+      setError(null);
 
       try {
-        const response = await getTokens(oktoClient); // Fetch all tokens
-
-        // Filter tokens that match the selected network's caipId
+        const response = await getTokens(oktoClient);
         const filteredTokens = response
-          .filter((token: any) => token.caipId === networkCaipId)
+          .filter((token: any) => token.caipId === selectedChain)
           .map((token: any) => ({
             address: token.address,
             symbol: token.symbol,
-            name: token.name,
+            name: token.shortName || token.name,
             decimals: token.decimals,
             caipId: token.caipId,
           }));
-
         setTokens(filteredTokens);
-      } catch (err: any) {
-        console.error("Error fetching tokens:", err);
-        setTokenError(err.message || "Failed to fetch tokens");
-        setTokens([]);
+      } catch (error: any) {
+        console.error("Error fetching tokens:", error);
+        setError(`Failed to fetch tokens: ${error.message}`);
       } finally {
         setLoadingTokens(false);
       }
-    }
-
+    };
     fetchTokens();
-  }, [networkCaipId, oktoClient]);
+  }, [selectedChain, oktoClient]);
 
-  const handleNetworkChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedCaipId = e.target.value;
-    const selectedChain = chains.find(chain => chain.caipId === selectedCaipId);
-
-    if (selectedChain) {
-      setNetworkName(selectedChain.networkName); // Set network name
-      setNetworkCaipId(selectedChain.caipId); // Set network caipId
+  // Transaction handlers
+  const handleGetOrderHistory = useCallback(async (id?: string) => {
+    const intentId = id || jobId;
+    if (!intentId) {
+      setError("No job ID available");
+      return;
     }
-  };
 
-  const handleTokenSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const selectedSymbol = e.target.value;
-    const selectedToken = tokens.find(token => token.symbol === selectedSymbol);
+    setIsLoading(true);
+    setError(null);
 
-    if (selectedToken) {
-      setTokenSymbol(selectedToken.symbol);
-    } else {
-      setTokenSymbol("");
-    }
-  };
-
-  const handleSubmit = async () => {
     try {
-      const transferParams = {
-        caip2Id: networkName,
-        recipientWalletAddress: recipientAddress as `0x{string}`,
-        tokenAddress: tokenAddress as `0x{string}`,
-        amount: Number(quantity),
-      };
-
-      console.log("Transfer params: ", transferParams);
-
-      const userOpTmp = await tokenTransfer(oktoClient, {
-        caip2Id: networkName,
-        recipient: recipientAddress as Address,
-        token: tokenAddress as Address,
-        amount: Number(quantity),
+      const orders = await getOrdersHistory(oktoClient, {
+        intentId,
+        intentType: "TOKEN_TRANSFER",
       });
-      setUserOp(userOpTmp);
-      setUserOpString(JSON.stringify(userOpTmp, null, 2));
+      setOrderHistory(orders?.[0]);
+      console.log('Refreshed Order History:', orders);
+      setActiveModal("orderHistory");
     } catch (error: any) {
-      console.error("Transfer failed:", error);
-      setModalMessage("Error: " + error.message);
-      setModalVisible(true);
+      console.error('Error in fetching order history', error);
+      setError(`Error fetching transaction details: ${error.message}`);
+    } finally {
+      setIsLoading(false);
     }
-  };
+  }, [jobId, oktoClient]);
 
-  const handleSubmitUserOp = async () => {
-    if (!userOpString) return;
+  const refreshOrderHistory = async () => {
+    if (!jobId) {
+      setError("No job ID available to refresh");
+      return;
+    }
+
+    setIsRefreshing(true);
     try {
-      const editedUserOp = JSON.parse(userOpString);
-      const signedUserOp = await oktoClient.signUserOp(editedUserOp);
-      const tx = await oktoClient.executeUserOp(signedUserOp);
-      setModalMessage("Transfer Submitted: " + JSON.stringify(tx, null, 2));
-      setModalVisible(true);
+      const orders = await getOrdersHistory(oktoClient, {
+        intentId: jobId,
+        intentType: "TOKEN_TRANSFER",
+      });
+      setOrderHistory(orders?.[0]);
     } catch (error: any) {
-      console.error("Transfer failed:", error);
-      setModalMessage("Error: " + error.message);
-      setModalVisible(true);
+      console.error('Error refreshing order history', error);
+      setError(`Error refreshing transaction details: ${error.message}`);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
-  const handleCloseModal = () => setModalVisible(false);
+  const handleTransferToken = async () => {
+    setIsLoading(true);
+    setError(null);
 
-  return (
-    <main className="flex min-h-screen flex-col items-center p-6 md:p-12 bg-gray-900 w-full">
-      <button
-        onClick={() => navigate("/home")}
-        className="w-fit py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-black mb-8"
-      >
-        Home
-      </button>
-      <h1 className="text-white font-bold text-3xl mb-8">Transfer Tokens</h1>
-      <p className="text-white font-regular text-lg mb-6">For a detailed overview of Token Transfer intent, refer to our documentation on <a className="underline text-indigo-300" href="https://docs.okto.tech/docs/react-sdk/tokenTransfer" target="_blank">Token Transfer</a>.</p>
+    try {
+      const transferParams = validateFormData();
+      const userOp = await tokenTransfer(oktoClient, transferParams);
+      const signedOp = await oktoClient.signUserOp(userOp);
+      const jobId = await oktoClient.executeUserOp(signedOp);
 
-      <div className="flex flex-col gap-4 w-full max-w-2xl">
-        <div className="flex flex-col items-center bg-black p-6 rounded-lg shadow-xl border border-gray-800">
-          {/* Network Selection */}
-          <select
-            className="w-full p-3 mb-1 bg-gray-800 border border-gray-700 rounded text-white"
-            value={networkCaipId}
-            onChange={handleNetworkChange} // Call function when network is selected
-          >
-            <option value="" disabled>Select a Network</option>
-            {chains.map((chain) => (
-              <option key={chain.chainId} value={chain.caipId}>
-                {`${chain.networkName} - (${chain.caipId})`}
-              </option>
-            ))}
-          </select>;
+      setJobId(jobId);
+      await handleGetOrderHistory(jobId);
+      showModal("jobId");
 
-          {/* Token Selection */}
-          <select
-            className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white"
-            value={tokenSymbol}
-            onChange={handleTokenSelect}
-            disabled={loadingTokens || !networkName}
-          >
-            <option value="" disabled>
-              {loadingTokens
-                ? "Loading tokens..."
-                : tokenError
-                  ? "Error loading tokens"
-                  : tokens.length === 0
-                    ? "No tokens available"
-                    : "Select a token"}
+      console.log('Transfer jobId:', jobId);
+    } catch (error: any) {
+      console.error('Error in token transfer:', error);
+      setError(`Error in token transfer: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTokenTransferUserOp = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const transferParams = validateFormData();
+      const userOp = await tokenTransfer(oktoClient, transferParams);
+      setUserOp(userOp);
+      showModal("unsignedOp");
+      console.log('UserOp:', userOp);
+    } catch (error: any) {
+      console.error('Error in token transfer:', error);
+      setError(`Error in creating user operation: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSignUserOp = async () => {
+    if (!userOp) {
+      setError("No transaction to sign");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const signedOp = await oktoClient.signUserOp(userOp);
+      setSignedUserOp(signedOp);
+      showModal("signedOp");
+      console.log('Signed UserOp', signedOp);
+    } catch (error: any) {
+      console.error('Error in signing the userop:', error);
+      setError(`Error in signing transaction: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleExecuteUserOp = async () => {
+    if (!signedUserOp) {
+      setError("No signed transaction to execute");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const jobId = await oktoClient.executeUserOp(signedUserOp);
+      setJobId(jobId);
+      await handleGetOrderHistory(jobId);
+      showModal("jobId");
+      console.log('Job Id', jobId);
+    } catch (error: any) {
+      console.error('Error in executing the userop:', error);
+      setError(`Error in executing transaction: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Render form fields
+  const renderForm = () => (
+    <div className="space-y-4">
+      {/* Network Selection */}
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-1">Select Network</label>
+        <select
+          className="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white"
+          value={selectedChain}
+          onChange={(e) => setSelectedChain(e.target.value)}
+          disabled={isLoading}
+        >
+          <option value="" disabled>Select a network</option>
+          {chains.map((chain) => (
+            <option key={chain.chainId} value={chain.caipId}>
+              {chain.networkName} ({chain.caipId})
             </option>
-            {tokens.map((token) => (
-              <option key={token.caipId} value={token.symbol}>
-                {token.symbol}
-              </option>
-            ))}
-          </select>
-          {tokenError && (
-            <p className="w-full mb-4 text-red-500 text-sm">{tokenError}</p>
-          )}
+          ))}
+        </select>
+      </div>
 
-          {/* Token Address Field - shows the selected token address */}
-          <input
-            className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-            value={tokens.find(token => token.symbol === tokenSymbol)?.address || "native"}
-            readOnly
-            placeholder="Selected Token Address"
-          />
+      {/* Token Selection */}
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-1">Select Token</label>
+        <select
+          className="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white"
+          value={selectedToken}
+          onChange={(e) => setSelectedToken(e.target.value)}
+          disabled={isLoading || loadingTokens || !selectedChain}
+        >
+          <option value="" disabled>
+            {loadingTokens ? "Loading tokens..." :
+              !selectedChain ? "Select a network first" :
+                tokens.length === 0 ? "No tokens available" : "Select a token"}
+          </option>
+          {tokens.map((token) => (
+            <option key={`${token.caipId}-${token.address}`} value={token.symbol}>
+              {token.symbol} - {token.address || "native"}
+            </option>
+          ))}
+        </select>
+      </div>
 
-          {/* Quantity with token symbol indicator */}
-          <div className="w-full mb-4 relative">
-            <input
-              className="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              placeholder={`Enter Quantity${tokenSymbol ? ` (in ${tokenSymbol})` : ' (in smallest unit)'}`}
-            />
-            {tokenSymbol && (
-              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                {tokenSymbol}
-              </span>
-            )}
+      {/* Amount Field */}
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-1">
+          Amount (in smallest unit)
+        </label>
+        <input
+          type="text"
+          className="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white"
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          placeholder="Enter amount in smallest unit (e.g., wei)"
+          disabled={isLoading}
+        />
+        <small className="text-gray-400">
+          {selectedToken && tokens.find((t) => t.symbol === selectedToken)?.decimals &&
+            `This token has ${tokens.find((t) => t.symbol === selectedToken)?.decimals} decimals`}
+        </small>
+      </div>
+
+      {/* Recipient Address */}
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-1">Recipient Address</label>
+        <input
+          type="text"
+          className="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white"
+          value={recipient}
+          onChange={(e) => setRecipient(e.target.value)}
+          placeholder="0x..."
+          disabled={isLoading}
+        />
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex gap-4 pt-2">
+        <button
+          className="w-full p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:bg-blue-800 disabled:opacity-50"
+          onClick={handleTransferToken}
+          disabled={isLoading || !selectedChain || !selectedToken || !amount || !recipient}
+        >
+          {isLoading ? "Processing..." : "Transfer Token (Direct)"}
+        </button>
+        <button
+          className="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors disabled:bg-purple-800 disabled:opacity-50"
+          onClick={handleTokenTransferUserOp}
+          disabled={isLoading || !selectedChain || !selectedToken || !amount || !recipient}
+        >
+          {isLoading ? "Processing..." : "Create Transaction"}
+        </button>
+      </div>
+    </div>
+  );
+
+  // Render modals
+  const renderModals = () => (
+    <>
+      {/* Job ID Modal */}
+      <Modal
+        isOpen={activeModal === "jobId"}
+        onClose={() => showModal("orderHistory")}
+        title="Transaction Submitted"
+      >
+        <div className="space-y-4 text-white">
+          <p>Your transaction has been submitted successfully.</p>
+          <div className="bg-gray-700 p-3 rounded">
+            <p className="text-sm text-gray-300 mb-1">Job ID:</p>
+            <p className="font-mono break-all">{jobId}</p>
+          </div>
+          <div className="flex justify-center pt-2">
+            <button
+              className="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors w-full"
+              onClick={() => handleGetOrderHistory()}
+              disabled={isLoading}
+            >
+              {isLoading ? "Loading..." : "View Transaction Details"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Unsigned Transaction Modal */}
+      <Modal
+        isOpen={activeModal === "unsignedOp"}
+        onClose={closeAllModals}
+        title="Review Transaction"
+      >
+        <div className="space-y-4 text-white">
+          <p>Please review your transaction details before signing.</p>
+          <div className="bg-gray-700 p-3 rounded">
+            <p className="text-sm text-gray-300 mb-1">Transaction Details:</p>
+            <div className="bg-gray-900 p-2 rounded font-mono text-sm overflow-auto max-h-40">
+              <pre>{JSON.stringify(userOp, null, 2)}</pre>
+            </div>
+          </div>
+          <div className="bg-gray-700 p-3 rounded">
+            <p className="text-sm text-gray-300 mb-1">Summary:</p>
+            <ul className="space-y-1">
+              <li><span className="text-gray-400">Token:</span> {selectedToken}</li>
+              <li><span className="text-gray-400">Amount:</span> {amount}</li>
+              <li><span className="text-gray-400">Recipient:</span> {recipient}</li>
+              <li><span className="text-gray-400">Network:</span> {chains.find(c => c.caipId === selectedChain)?.networkName}</li>
+            </ul>
+          </div>
+          <div className="flex justify-center pt-2">
+            <button
+              className="p-3 bg-green-600 hover:bg-green-700 text-white rounded transition-colors w-full"
+              onClick={handleSignUserOp}
+              disabled={isLoading}
+            >
+              {isLoading ? "Signing..." : "Sign Transaction"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Signed Transaction Modal */}
+      <Modal
+        isOpen={activeModal === "signedOp"}
+        onClose={closeAllModals}
+        title="Sign Completed"
+      >
+        <div className="space-y-4 text-white">
+          <p>Your transaction has been signed successfully and is ready to be executed.</p>
+          <div className="bg-gray-700 p-3 rounded">
+            <p className="text-sm text-gray-300 mb-1">Signed Transaction:</p>
+            <div className="bg-gray-900 p-2 rounded font-mono text-sm overflow-auto max-h-40">
+              <pre>{JSON.stringify(signedUserOp, null, 2)}</pre>
+            </div>
+          </div>
+          <div className="flex justify-center pt-2">
+            <button
+              className="p-3 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors w-full"
+              onClick={handleExecuteUserOp}
+              disabled={isLoading}
+            >
+              {isLoading ? "Executing..." : "Execute Transaction"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Order History Modal */}
+      <Modal
+        isOpen={activeModal === "orderHistory"}
+        onClose={closeAllModals}
+        title="Transaction Details"
+      >
+        <div className="space-y-4 text-white">
+          <div className="flex justify-between items-center">
+            <p>Transaction Details:</p>
+            <button
+              onClick={refreshOrderHistory}
+              className="flex items-center gap-1 text-blue-400 hover:text-blue-300 px-2 py-1 rounded bg-blue-900/30 hover:bg-blue-900/50 transition-colors"
+              disabled={isRefreshing}
+            >
+              {isRefreshing ? <span>Refreshing...</span> : (<><RefreshIcon /> Refresh</>)}
+            </button>
           </div>
 
-          <input
-            className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-            value={recipientAddress}
-            onChange={(e) => setRecipientAddress(e.target.value)}
-            placeholder="Enter Recipient Address"
-          />
-
-          <button
-            className="w-full p-3 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-black"
-            onClick={handleSubmit}
-          >
-            Create Transfer
-          </button>
-
-          {userOp && (
+          {orderHistory ? (
             <>
-              <div className="w-full mt-4">
-                <textarea
-                  className="w-full p-4 bg-gray-800 border border-gray-700 rounded text-white font-mono text-sm resize-vertical focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  value={userOpString}
-                  onChange={(e) => setUserOpString(e.target.value)}
-                  rows={10}
-                />
+              <div className="bg-gray-700 p-3 rounded">
+                <p className="text-sm text-gray-300 mb-1">Status:</p>
+                <p className={`font-bold ${orderHistory[0]?.status === 'COMPLETED' ? 'text-green-400' :
+                  orderHistory[0]?.status === 'PENDING' ? 'text-yellow-400' :
+                    orderHistory[0]?.status === 'FAILED' ? 'text-red-400' : 'text-white'
+                  }`}>
+                  {orderHistory[0]?.status || 'Processing'}
+                </p>
               </div>
-              <button
-                className="w-full p-3 mt-4 bg-green-500 text-white rounded hover:bg-green-600 transition-colors focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-black"
-                onClick={handleSubmitUserOp}
-              >
-                Sign and Send Transaction
-              </button>
+
+              <div className="bg-gray-700 p-3 rounded">
+                <p className="text-sm text-gray-300 mb-1">Transaction Hash:</p>
+                <p className="font-mono break-all">{orderHistory[0]?.txHash || 'Pending...'}</p>
+              </div>
+
+              <div className="bg-gray-700 p-3 rounded">
+                <p className="text-sm text-gray-300 mb-1">Job ID:</p>
+                <p className="font-mono break-all">{jobId}</p>
+              </div>
+
+              <div className="bg-gray-700 p-3 rounded">
+                <p className="text-sm text-gray-300 mb-1">Transaction Details:</p>
+                <div className="bg-gray-900 p-2 rounded font-mono text-sm overflow-auto max-h-60">
+                  <pre>{JSON.stringify(orderHistory, null, 2)}</pre>
+                </div>
+              </div>
+
+              {explorerUrl && (
+                <div className="flex justify-center pt-2">
+                  <a
+                    href={explorerUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors w-full text-center"
+                  >
+                    View in Explorer
+                  </a>
+                </div>
+              )}
             </>
+          ) : (
+            <p className="text-gray-400">Loading transaction details...</p>
           )}
 
-          {modalVisible && (
-            <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex justify-center items-center z-50">
-              <div className="bg-black rounded-lg w-11/12 max-w-2xl p-6 border border-gray-800 shadow-xl">
-                <div className="flex justify-between items-center border-b border-gray-700 pb-2 mb-4">
-                  <div className="text-white text-lg font-semibold">
-                    Transfer Status
-                  </div>
-                  <button
-                    className="text-gray-400 hover:text-gray-200 transition-colors text-2xl"
-                    onClick={handleCloseModal}
-                  >
-                    &times;
-                  </button>
-                </div>
-                <div className="text-left">
-                  <pre className="whitespace-pre-wrap break-words bg-gray-900 p-4 rounded text-white">
-                    {modalMessage}
-                  </pre>
-                </div>
-                <div className="mt-4 text-right">
-                  <button
-                    className="px-4 py-2 bg-gray-700 text-white rounded hover:bg-gray-600 transition-colors"
-                    onClick={handleCloseModal}
-                  >
-                    Close
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
+          <div className="flex justify-center pt-2">
+            <button
+              className="p-3 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors w-full"
+              onClick={resetForm}
+            >
+              Create New Transaction
+            </button>
+          </div>
         </div>
+      </Modal>
+    </>
+  );
+
+  return (
+    <div className="w-full bg-gray-900 min-h-screen">
+      <div className="flex flex-col w-full max-w-2xl mx-auto p-6 space-y-6 bg-gray-900 rounded-lg shadow-xl">
+        <button
+          onClick={() => navigate("/home")}
+          className="w-fit py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-black mb-8"
+        >
+          Home
+        </button>
+        <h1 className="text-2xl font-bold text-white text-center">Token Transfer</h1>
+        <p className="text-white font-regular text-lg mb-6">
+          For a detailed overview of Token Transfer intent, refer to our documentation on{" "}
+          <a
+            className="underline text-indigo-300"
+            href="https://docs.okto.tech/docs/react-sdk/tokenTransfer"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Token Transfer
+          </a>.
+        </p>
+
+        {error && (
+          <div className="bg-red-900/50 border border-red-700 text-red-100 px-4 py-3 rounded">
+            {error}
+          </div>
+        )}
+
+        {renderForm()}
       </div>
-    </main>
+      {renderModals()}
+    </div>
   );
 }
 
-export default TransferTokens;
+export default TwoStepTokenTransfer;
