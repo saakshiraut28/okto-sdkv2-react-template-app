@@ -1,20 +1,93 @@
 "use client";
-import { useState } from "react";
-import { Address, tokenTransfer, useOkto } from "@okto_web3/react-sdk";
+import { useEffect, useState } from "react";
+import { Address, getTokens, tokenTransfer, useOkto } from "@okto_web3/react-sdk";
 import { useNavigate } from "react-router-dom";
+import { getChains } from '@okto_web3/react-sdk';
+
+interface TokenOption {
+  address: string;
+  symbol: string;
+  name: string;
+  decimals: number;
+  caipId: string;
+}
 
 function TransferTokens() {
   const oktoClient = useOkto();
 
+  const [chains, setChains] = useState<any[]>([]);
   const [networkName, setNetworkName] = useState("");
   const [tokenAddress, setTokenAddress] = useState("");
+  const [tokenDecimals, setTokenDecimals] = useState(18);
+  const [tokenSymbol, setTokenSymbol] = useState("");
   const [quantity, setQuantity] = useState("");
   const [recipientAddress, setRecipientAddress] = useState("");
   const [modalVisible, setModalVisible] = useState(false);
   const [modalMessage, setModalMessage] = useState("");
   const [userOp, setUserOp] = useState<any | null>(null);
   const [userOpString, setUserOpString] = useState<string>("");
+  const [tokens, setTokens] = useState<TokenOption[]>([]);
+  const [loadingTokens, setLoadingTokens] = useState(false);
+  const [tokenError, setTokenError] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    async function fetchChains() {
+      try {
+        const fetchedChains = await getChains(oktoClient);
+        setChains(fetchedChains);
+      } catch (error) {
+        console.error("Error fetching chains:", error);
+      }
+    }
+    fetchChains();
+  }, [oktoClient]);
+
+  // Fetch tokens when network changes
+  useEffect(() => {
+    async function fetchTokens() {
+      if (!networkName) {
+        setTokens([]);
+        return;
+      }
+
+      setLoadingTokens(true);
+      setTokenError(null);
+
+      try {
+        const response = await getTokens(oktoClient);
+
+        const tokensList: TokenOption[] = response.map((token: any) => ({
+          address: token.address,
+          symbol: token.symbol,
+          name: token.name,
+          decimals: token.decimals,
+          caipId: token.caipId
+        }));
+
+        setTokens(tokensList);
+      } catch (err: any) {
+        console.error("Error fetching tokens:", err);
+        setTokenError(err.message || "Failed to fetch tokens");
+        setTokens([]);
+      } finally {
+        setLoadingTokens(false);
+      }
+    }
+
+    fetchTokens();
+  }, [networkName, oktoClient]);
+
+  const handleTokenSelect = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedSymbol = e.target.value;
+    const selectedToken = tokens.find(token => token.symbol === selectedSymbol);
+
+    if (selectedToken) {
+      setTokenSymbol(selectedToken.symbol);
+    } else {
+      setTokenSymbol("");
+    }
+  };
 
   const handleSubmit = async () => {
     try {
@@ -68,28 +141,73 @@ function TransferTokens() {
         Home
       </button>
       <h1 className="text-white font-bold text-3xl mb-8">Transfer Tokens</h1>
+      <p className="text-white font-regular text-lg mb-6">For a detailed overview of Token Transfer intent, refer to our documentation on <a className="underline text-indigo-300" href="https://docs.okto.tech/docs/react-sdk/tokenTransfer" target="_blank">Token Transfer</a>.</p>
+
       <div className="flex flex-col gap-4 w-full max-w-2xl">
         <div className="flex flex-col items-center bg-black p-6 rounded-lg shadow-xl border border-gray-800">
-          <input
-            className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+          {/* Network Selection */}
+          <select
+            className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white"
             value={networkName}
             onChange={(e) => setNetworkName(e.target.value)}
-            placeholder="Enter Network ChainId"
-          />
+          >
+            <option value="" disabled>Select a Network</option>
+            {chains.map((chain) => (
+              <option key={chain.chainId} value={chain.caipId}>
+                {chain.networkName}
+              </option>
+            ))}
+          </select>
 
+          {/* Token Selection */}
+          <select
+            className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white"
+            value={tokenSymbol}
+            onChange={handleTokenSelect}
+            disabled={loadingTokens || !networkName}
+          >
+            <option value="" disabled>
+              {loadingTokens
+                ? "Loading tokens..."
+                : tokenError
+                  ? "Error loading tokens"
+                  : tokens.length === 0
+                    ? "No tokens available"
+                    : "Select a token"}
+            </option>
+            {tokens.map((token) => (
+              <option key={token.caipId} value={token.symbol}>
+                {token.symbol}
+              </option>
+            ))}
+          </select>
+          {tokenError && (
+            <p className="w-full mb-4 text-red-500 text-sm">{tokenError}</p>
+          )}
+
+          {/* Token Address Field - shows the selected token address */}
           <input
             className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-            value={tokenAddress}
-            onChange={(e) => setTokenAddress(e.target.value)}
-            placeholder="Enter Token Address"
+            value={tokens.find(token => token.symbol === tokenSymbol)?.address || "native"}
+            readOnly
+            placeholder="Selected Token Address"
           />
 
-          <input
-            className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-            value={quantity}
-            onChange={(e) => setQuantity(e.target.value)}
-            placeholder="Enter Quantity (in smallest unit)"
-          />
+
+          {/* Quantity with token symbol indicator */}
+          <div className="w-full mb-4 relative">
+            <input
+              className="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              placeholder={`Enter Quantity${tokenSymbol ? ` (in ${tokenSymbol})` : ' (in smallest unit)'}`}
+            />
+            {tokenSymbol && (
+              <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400">
+                {tokenSymbol}
+              </span>
+            )}
+          </div>
 
           <input
             className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
