@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useCallback } from "react";
-import { Address, getOrdersHistory, getTokens, useOkto } from "@okto_web3/react-sdk";
+import { Address, getOrdersHistory, getPortfolio, getTokens, OktoClient, useOkto, UserPortfolioData } from "@okto_web3/react-sdk";
 import { tokenTransfer } from "@okto_web3/react-sdk/userop";
 import { getChains } from '@okto_web3/react-sdk';
 import { useNavigate } from "react-router-dom";
@@ -49,6 +49,10 @@ function TwoStepTokenTransfer() {
   // Form state
   const [chains, setChains] = useState<any[]>([]);
   const [tokens, setTokens] = useState<TokenOption[]>([]);
+  const [portfolio, setPortfolio] = useState<UserPortfolioData>();
+  const [balanceUsdt, setBalanceUsdt] = useState<string>("");
+  const [balanceInr, setBalanceInr] = useState<string>("");
+  const [portfolioBalance, setPortfolioBalance] = useState<any[]>([]);
   const [selectedChain, setSelectedChain] = useState<string>("");
   const [selectedToken, setSelectedToken] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
@@ -87,6 +91,7 @@ function TwoStepTokenTransfer() {
     closeAllModals();
   };
 
+
   const validateFormData = () => {
     const token = tokens.find(t => t.symbol === selectedToken);
     if (!token) throw new Error("Please select a valid token");
@@ -115,6 +120,35 @@ function TwoStepTokenTransfer() {
     };
     fetchChains();
   }, [oktoClient]);
+
+  useEffect(() => {
+    const fetchPortfolio = async () => {
+      try {
+        const data = await getPortfolio(oktoClient); // Fetch data
+        setPortfolio(data); // Update state
+
+        if (data?.groupTokens) { // Ensure data exists
+          const updatedBalances = data.groupTokens.map(group =>
+            group.tokens.map(token => ({
+              symbol: token.symbol,
+              balance: token.balance,
+              usdtBalance: (parseFloat(token.holdingsPriceUsdt) * parseFloat(token.balance)).toFixed(4),
+              inrBalance: (parseFloat(token.holdingsPriceInr) * parseFloat(token.balance)).toFixed(4)
+            }))
+          ).flat(); // Flatten to get an array of tokens
+
+          setPortfolioBalance(updatedBalances);
+        }
+      } catch (error: any) {
+        console.error("Error fetching portfolio:", error);
+        setError(`Failed to fetch portfolio: ${error.message}`);
+      }
+    };
+
+    fetchPortfolio();
+  }, [oktoClient]);
+
+
 
   useEffect(() => {
     const fetchTokens = async () => {
@@ -149,7 +183,7 @@ function TwoStepTokenTransfer() {
   }, [selectedChain, oktoClient]);
 
   // Transaction handlers
-  const handleGetOrderHistory = useCallback(async (id?: string) => {
+  const handleGetOrderHistory = async (id?: string) => {
     const intentId = id || jobId;
     if (!intentId) {
       setError("No job ID available");
@@ -173,7 +207,7 @@ function TwoStepTokenTransfer() {
     } finally {
       setIsLoading(false);
     }
-  }, [jobId, oktoClient]);
+  }
 
   const refreshOrderHistory = async () => {
     if (!jobId) {
@@ -282,6 +316,11 @@ function TwoStepTokenTransfer() {
     }
   };
 
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+  };
+
+
   // Render form fields
   const renderForm = () => (
     <div className="space-y-4">
@@ -327,8 +366,13 @@ function TwoStepTokenTransfer() {
 
       {/* Amount Field */}
       <div>
-        <label className="block text-sm font-medium text-gray-300 mb-1">
-          Amount (in smallest unit)
+        <label className="flex justify-between block text-sm font-medium text-gray-300 mb-1">
+          <p>Amount (in smallest unit):</p>
+          <p>
+            Balance: {portfolioBalance?.map(pb => pb.balance).join(", ") || "N/A"} &nbsp;
+            INR: {portfolioBalance?.map(pb => pb.inrBalance).join(", ") || "N/A"} &nbsp;
+            USDT: {portfolioBalance?.map(pb => pb.usdtBalance).join(", ") || "N/A"}
+          </p>
         </label>
         <input
           type="text"
@@ -371,7 +415,7 @@ function TwoStepTokenTransfer() {
           onClick={handleTokenTransferUserOp}
           disabled={isLoading || !selectedChain || !selectedToken || !amount || !recipient}
         >
-          {isLoading ? "Processing..." : "Create Transaction"}
+          {isLoading ? "Processing..." : "Create Token Transfer UserOp"}
         </button>
       </div>
     </div>
@@ -390,7 +434,7 @@ function TwoStepTokenTransfer() {
           <p>Your transaction has been submitted successfully.</p>
           <div className="bg-gray-700 p-3 rounded">
             <p className="text-sm text-gray-300 mb-1">Job ID:</p>
-            <p className="font-mono break-all">{jobId}</p>
+            <p className="font-mono break-all">{jobId}<button className="bg-gray-200 text-black px-2 hover:bg-indigo-300 mx-2" onClick={() => copyToClipboard(JSON.stringify(jobId))}>Copy</button></p>
           </div>
           <div className="flex justify-center pt-2">
             <button
@@ -398,7 +442,7 @@ function TwoStepTokenTransfer() {
               onClick={() => handleGetOrderHistory()}
               disabled={isLoading}
             >
-              {isLoading ? "Loading..." : "View Transaction Details"}
+              {isLoading ? "Loading..." : "Check Job Status"}
             </button>
           </div>
         </div>
@@ -415,7 +459,8 @@ function TwoStepTokenTransfer() {
           <div className="bg-gray-700 p-3 rounded">
             <p className="text-sm text-gray-300 mb-1">Transaction Details:</p>
             <div className="bg-gray-900 p-2 rounded font-mono text-sm overflow-auto max-h-40">
-              <pre>{JSON.stringify(userOp, null, 2)}</pre>
+              <button className="bg-gray-200 text-black px-2 hover:bg-indigo-300" onClick={() => copyToClipboard(JSON.stringify(userOp, null, 2))}>Copy</button>
+              <pre >{JSON.stringify(userOp, null, 2)}</pre>
             </div>
           </div>
           <div className="bg-gray-700 p-3 rounded">
@@ -448,9 +493,10 @@ function TwoStepTokenTransfer() {
         <div className="space-y-4 text-white">
           <p>Your transaction has been signed successfully and is ready to be executed.</p>
           <div className="bg-gray-700 p-3 rounded">
-            <p className="text-sm text-gray-300 mb-1">Signed Transaction:</p>
+            <p className="text-sm text-gray-300 mb-1" >Signed Transaction:</p>
             <div className="bg-gray-900 p-2 rounded font-mono text-sm overflow-auto max-h-40">
-              <pre>{JSON.stringify(signedUserOp, null, 2)}</pre>
+              <button className="bg-gray-200 text-black px-2 hover:bg-indigo-300" onClick={() => copyToClipboard(JSON.stringify(signedUserOp, null, 2))}>Copy</button>
+              <pre >{JSON.stringify(signedUserOp, null, 2)}</pre>
             </div>
           </div>
           <div className="flex justify-center pt-2">
@@ -464,6 +510,7 @@ function TwoStepTokenTransfer() {
           </div>
         </div>
       </Modal>
+
 
       {/* Order History Modal */}
       <Modal
@@ -483,52 +530,36 @@ function TwoStepTokenTransfer() {
             </button>
           </div>
 
+          {/* Order History Details */}
           {orderHistory ? (
-            <>
-              <div className="bg-gray-700 p-3 rounded">
-                <p className="text-sm text-gray-300 mb-1">Status:</p>
-                <p className={`font-bold ${orderHistory[0]?.status === 'COMPLETED' ? 'text-green-400' :
-                  orderHistory[0]?.status === 'PENDING' ? 'text-yellow-400' :
-                    orderHistory[0]?.status === 'FAILED' ? 'text-red-400' : 'text-white'
-                  }`}>
-                  {orderHistory[0]?.status || 'Processing'}
-                </p>
-              </div>
-
-              <div className="bg-gray-700 p-3 rounded">
-                <p className="text-sm text-gray-300 mb-1">Transaction Hash:</p>
-                <p className="font-mono break-all">{orderHistory[0]?.txHash || 'Pending...'}</p>
-              </div>
-
-              <div className="bg-gray-700 p-3 rounded">
-                <p className="text-sm text-gray-300 mb-1">Job ID:</p>
-                <p className="font-mono break-all">{jobId}</p>
-              </div>
-
-              <div className="bg-gray-700 p-3 rounded">
-                <p className="text-sm text-gray-300 mb-1">Transaction Details:</p>
-                <div className="bg-gray-900 p-2 rounded font-mono text-sm overflow-auto max-h-60">
-                  <pre>{JSON.stringify(orderHistory, null, 2)}</pre>
-                </div>
-              </div>
-
-              {explorerUrl && (
-                <div className="flex justify-center pt-2">
-                  <a
-                    href={explorerUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors w-full text-center"
-                  >
-                    View in Explorer
-                  </a>
-                </div>
-              )}
-            </>
+            <div className="bg-gray-700 p-4 rounded-md">
+              <p><span className="font-semibold">Intent ID:</span> {orderHistory.intentId}</p>
+              <p><span className="font-semibold">Status:</span> {orderHistory.status}</p>
+              <p><span className="font-semibold">Transaction Hash:</span></p>
+              <pre className="break-all whitespace-pre-wrap overflow-auto bg-gray-800 p-2 rounded-md text-sm max-w-full">
+                <button className="bg-gray-200 text-black px-2 hover:bg-indigo-300" onClick={() => copyToClipboard(JSON.stringify(orderHistory.transactionHash[1]))}>Copy</button>
+                {orderHistory.transactionHash[1]}
+              </pre>
+            </div>
           ) : (
-            <p className="text-gray-400">Loading transaction details...</p>
+            <p className="text-gray-400">No order history available.</p>
           )}
 
+          {/* View in Explorer (if URL exists) */}
+          {orderHistory && (
+            <div className="flex justify-center pt-2">
+              <a
+                href={`https://etherscan.io/tx/${orderHistory.transactionHash[0]}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors w-full text-center"
+              >
+                View in Explorer
+              </a>
+            </div>
+          )}
+
+          {/* Reset Form Button */}
           <div className="flex justify-center pt-2">
             <button
               className="p-3 bg-gray-600 hover:bg-gray-700 text-white rounded transition-colors w-full"
@@ -539,12 +570,13 @@ function TwoStepTokenTransfer() {
           </div>
         </div>
       </Modal>
+
     </>
   );
 
   return (
     <div className="w-full bg-gray-900 min-h-screen">
-      <div className="flex flex-col w-full max-w-2xl mx-auto p-6 space-y-6 bg-gray-900 rounded-lg shadow-xl">
+      <div className="flex flex-col w-full max-w-2xl mx-auto p-6 space-y-6 bg-gray-900 rounded-lg shadow-xl justify-center items-center">
         <button
           onClick={() => navigate("/home")}
           className="w-fit py-2 px-4 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-black mb-8"
