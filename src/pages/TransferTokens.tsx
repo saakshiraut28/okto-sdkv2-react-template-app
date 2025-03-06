@@ -50,8 +50,6 @@ function TwoStepTokenTransfer() {
   const [chains, setChains] = useState<any[]>([]);
   const [tokens, setTokens] = useState<TokenOption[]>([]);
   const [portfolio, setPortfolio] = useState<UserPortfolioData>();
-  const [balanceUsdt, setBalanceUsdt] = useState<string>("");
-  const [balanceInr, setBalanceInr] = useState<string>("");
   const [portfolioBalance, setPortfolioBalance] = useState<any[]>([]);
   const [selectedChain, setSelectedChain] = useState<string>("");
   const [selectedToken, setSelectedToken] = useState<string>("");
@@ -236,6 +234,8 @@ function TwoStepTokenTransfer() {
 
     try {
       const transferParams = validateFormData();
+      // Note overher: you can directly import tokenTransfer from the @okto_web3/react-sdk
+      // On doing so, you'll directly get the jobId and you won't have to follow the below code.
       const userOp = await tokenTransfer(oktoClient, transferParams);
       const signedOp = await oktoClient.signUserOp(userOp);
       const jobId = await oktoClient.executeUserOp(signedOp);
