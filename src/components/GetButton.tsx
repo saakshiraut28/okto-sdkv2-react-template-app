@@ -1,5 +1,6 @@
 import { useOkto } from "@okto_web3/react-sdk";
 import React, { useState } from "react";
+import CopyButton from "./CopyButton";
 
 interface GetButtonProps {
   title: string;
@@ -57,6 +58,7 @@ const GetButton: React.FC<GetButtonProps> = ({ title, apiFn, tag }) => {
             </div>
             <div className="text-left text-white max-h-96 overflow-y-auto">
               <pre className="whitespace-pre-wrap break-words bg-gray-900 p-4 rounded">
+                <CopyButton text={resultData} />
                 {resultData}
               </pre>
             </div>
