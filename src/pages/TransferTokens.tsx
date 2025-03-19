@@ -5,6 +5,7 @@ import { tokenTransfer } from "@okto_web3/react-sdk/userop";
 import { getChains } from '@okto_web3/react-sdk';
 import { useNavigate } from "react-router-dom";
 import CopyButton from "../components/CopyButton";
+import ViewExplorerURL from "../components/ViewExplorerURL";
 
 // Types
 interface TokenOption {
@@ -388,6 +389,8 @@ function TwoStepTokenTransfer() {
           onChange={(e) => {
             setSelectedChain(e.target.value);
             setSelectedToken("");
+            setAmount("");
+            setRecipient("");
           }}
           disabled={isLoading}
         >
@@ -668,17 +671,8 @@ function TwoStepTokenTransfer() {
           {orderHistory && (
             <>
               {orderHistory.status === "SUCCESSFUL" ? (
-                <div className="flex justify-center pt-2">
-                  {orderHistory.downstreamTransactionHash?.[0] && (
-                    <a
-                      href={`https://sepolia.basescan.org/tx/${orderHistory.downstreamTransactionHash[0]}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors w-full text-center"
-                    >
-                      View in Explorer
-                    </a>
-                  )}
+                <div className="flex justify-center w-full pt-2">
+                  <ViewExplorerURL orderHistory={orderHistory} />
                 </div>
               ) : (
                 <div className="flex justify-center pt-2">
