@@ -36,7 +36,7 @@ const ViewExplorerURL: React.FC<ViewURLProps> = ({ orderHistory }) => {
     "eip155:42161": "https://arbiscan.io/address/{address}#tokentxns", // Arbitrum
     "eip155:43114": "https://subnets.avax.network/dexalot/address/{address}", // Avalanche
     "eip155:8453": "https://basescan.org/address/{address}#internaltx", // Base
-    "eip155:84532": "https://sepolia.basescan.org/address/{address}", // Base_Testnet
+    "eip155:84532": "https://sepolia.basescan.org/address/{address}#internaltx", // Base_Testnet
     "eip155:56": "https://bscscan.com/address/{address}", // BSC
     "eip155:1": "https://etherscan.io/address/{address}#internaltx", // Ethereum
     "eip155:250": "https://ftmscan.com/address/{address}", // Fantom
