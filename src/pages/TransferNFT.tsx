@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { nftTransfer as nftTransferUserOp } from "@okto_web3/react-sdk/userop";
 import { nftTransfer as nftTransferMain } from "@okto_web3/react-sdk";
 import CopyButton from "../components/CopyButton";
+import ViewExplorerURL from "../components/ViewExplorerURL";
 
 // Modal Component
 interface ModalProps {
@@ -457,19 +458,6 @@ function TransferNFT() {
         <div className="space-y-4 text-white">
           <div className="flex justify-between items-center">
             <p>Transaction Details:</p>
-            <button
-              onClick={refreshOrderHistory}
-              className="flex items-center gap-1 text-blue-400 hover:text-blue-300 px-2 py-1 rounded bg-blue-900/30 hover:bg-blue-900/50 transition-colors"
-              disabled={isRefreshing}
-            >
-              {isRefreshing ? (
-                <span>Refreshing...</span>
-              ) : (
-                <>
-                  <RefreshIcon /> Refresh
-                </>
-              )}
-            </button>
           </div>
 
           {/* Order History Details */}
@@ -503,14 +491,14 @@ function TransferNFT() {
               {orderHistory.status === "SUCCESSFUL" ? (
                 <div className="flex justify-center pt-2">
                   {orderHistory.downstreamTransactionHash?.[0] && (
-                    <a
-                      href={`https://sepolia.basescan.org/tx/${orderHistory.downstreamTransactionHash[0]}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors w-full text-center"
-                    >
-                      View in Explorer
-                    </a>
+                    <>
+                      <ViewExplorerURL orderHistory={orderHistory} />
+                      <p>
+                        If you are unable to see the View Explorer button. You
+                        can go to the respective explorer and check the Internal
+                        Transaction for your account.
+                      </p>
+                    </>
                   )}
                 </div>
               ) : (
