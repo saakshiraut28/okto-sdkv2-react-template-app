@@ -547,6 +547,19 @@ function TransferNFT() {
       </button>
 
       <h1 className="text-white font-bold text-3xl mb-8">Transfer NFT</h1>
+      <p className="text-white font-regular text-lg mb-6">
+        For a detailed overview of Transfer NFT intent, refer to our
+        documentation on{" "}
+        <a
+          className="underline text-indigo-300"
+          href="https://docs.okto.tech/docs/react-sdk/nftTransfer"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          NFT Transfer
+        </a>
+        .
+      </p>
 
       {error && (
         <div className="w-full max-w-2xl bg-red-900/50 border border-red-700 text-red-100 p-3 mb-4 rounded">
