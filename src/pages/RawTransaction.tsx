@@ -166,6 +166,7 @@ function EVMRawTransaction() {
         intentId: jobId,
         intentType: "RAW_TRANSACTION",
       });
+      console.log("Order ", orders?.[0]);
       setOrderHistory(orders?.[0]);
     } catch (error: any) {
       console.error("Error refreshing order history", error);
@@ -404,6 +405,11 @@ function EVMRawTransaction() {
               {orderHistory.status === "SUCCESSFUL" ? (
                 <div className="flex justify-center w-full pt-2">
                   <ViewExplorerURL orderHistory={orderHistory} />
+                  <p>
+                    If you are unable to see the View Explorer button. You can
+                    go to the respective explorer and check the Internal
+                    Transaction for your account.
+                  </p>
                 </div>
               ) : (
                 <div className="flex justify-center pt-2">
