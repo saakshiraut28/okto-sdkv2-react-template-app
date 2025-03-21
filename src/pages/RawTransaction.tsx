@@ -503,6 +503,13 @@ function EVMRawTransaction() {
               ))}
             </select>
           </div>
+          {selectedChain && (
+            <p className="mt-2 text-sm text-gray-300 border border-indigo-700 p-2 my-2">
+              {sponsorshipEnabled
+                ? "Gas sponsorship is available ✅"
+                : "⚠️ Sponsorship is not activated for this chain, the user must hold native tokens to proceed with the transfer. You can get the token from the respective faucets"}
+            </p>
+          )}
 
           {/* Sender Address Input */}
           <div className="w-full my-2">
