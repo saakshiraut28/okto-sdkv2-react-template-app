@@ -11,7 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@okto_web3/react-sdk": "0.5.1",
+    "@okto_web3/react-sdk": "^0.5.2-dev.31",
     "@react-oauth/google": "^0.12.1",
     "buffer": "^6.0.3",
     "lucide-react": "^0.483.0",
