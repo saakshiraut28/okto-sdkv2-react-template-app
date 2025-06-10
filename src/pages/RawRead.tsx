@@ -230,7 +230,62 @@ function RawRead() {
             </>
           ) : (
             <>
-              {/* Aptos inputs remain unchanged (optional to simplify further) */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Aptos Function</label>
+                  <input
+                    type="text"
+                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white"
+                    value={aptosFunction}
+                    onChange={(e) => setAptosFunction(e.target.value)}
+                    placeholder="0x1::coin::balance"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Type Arguments</label>
+                  {aptosTypeArgs.map((arg, i) => (
+                    <input
+                      key={i}
+                      className="w-full mb-2 p-3 bg-gray-700 border border-gray-600 rounded text-white"
+                      value={arg}
+                      onChange={(e) => {
+                        const updated = [...aptosTypeArgs];
+                        updated[i] = e.target.value;
+                        setAptosTypeArgs(updated);
+                      }}
+                      placeholder="0x1::aptos_coin::AptosCoin"
+                    />
+                  ))}
+                  <button
+                    onClick={() => setAptosTypeArgs([...aptosTypeArgs, ""])}
+                    className="text-indigo-400 text-sm"
+                  >
+                    + Add Type Argument
+                  </button>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Function Arguments</label>
+                  {aptosFuncArgs.map((arg, i) => (
+                    <input
+                      key={i}
+                      className="w-full mb-2 p-3 bg-gray-700 border border-gray-600 rounded text-white"
+                      value={arg}
+                      onChange={(e) => {
+                        const updated = [...aptosFuncArgs];
+                        updated[i] = e.target.value;
+                        setAptosFuncArgs(updated);
+                      }}
+                      placeholder="0x<user_address>"
+                    />
+                  ))}
+                  <button
+                    onClick={() => setAptosFuncArgs([...aptosFuncArgs, ""])}
+                    className="text-indigo-400 text-sm"
+                  >
+                    + Add Function Argument
+                  </button>
+                </div>
             </>
           )}
 
