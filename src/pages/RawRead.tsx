@@ -45,7 +45,7 @@ function RawRead() {
     try {
       if (!contractAddress.startsWith("0x")) throw new Error("Invalid contract address");
       const abi = JSON.parse(abiJson);
-      const args = JSON.parse(argsJson);
+      const args = argsJson?.trim() ? JSON.parse(argsJson) : {};      
 
       const payload = {
         caip2Id: selectedChain,
@@ -223,8 +223,7 @@ function RawRead() {
                   className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white h-28"
                   value={argsJson}
                   onChange={(e) => setArgsJson(e.target.value)}
-                  placeholder={`e.g. {"account":"0xB7B8F759E8Bd293b91632100f53a45859832f463"}
-`}
+                  placeholder={`e.g. {"account":"0xB7B8F759E8Bd293b91632100f53a45859832f463"}`}
                 />
               </div>
             </>
