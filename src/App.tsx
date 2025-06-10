@@ -7,6 +7,7 @@ import CreateNft from "./pages/CreateNft";
 import RawTransaction from "./pages/RawTransaction";
 import TransferNFT from "./pages/TransferNFT";
 import TransferTokens from "./pages/TransferTokens";
+import RawRead from "./pages/RawRead";
 
 function App() {
   const oktoClient = useOkto();
@@ -20,6 +21,7 @@ function App() {
         <Route path="/" element={<LoginPage />} />
         <Route path="/home" element={<Homepage />} />
 
+        <Route path="/rawRead" element={<RawRead />} />
         <Route path="/transfertoken" element={<TransferTokens />} />
         <Route path="/transfernft" element={<TransferNFT />} />
         <Route path="/createnftcollection" element={<CreateNft />} />
