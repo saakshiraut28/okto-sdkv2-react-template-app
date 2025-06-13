@@ -75,6 +75,7 @@ function TwoStepTokenTransfer() {
   const [selectedToken, setSelectedToken] = useState<string>("");
   const [amount, setAmount] = useState<string>("");
   const [recipient, setRecipient] = useState<string>("");
+  const [feePayer , setFeePayer] = useState<string>("");
   const [sponsorshipEnabled, setSponsorshipEnabled] = useState(false);
   const [tokenBalance, setTokenBalance] = useState<{
     balance: string;
@@ -106,6 +107,7 @@ function TwoStepTokenTransfer() {
     setSelectedToken("");
     setAmount("");
     setRecipient("");
+    setFeePayer(""); 
     setUserOp(null);
     setSignedUserOp(null);
     setJobId(null);
@@ -117,6 +119,10 @@ function TwoStepTokenTransfer() {
 
   const validateFormData = () => {
     const token = tokens.find((t) => t.symbol === selectedToken);
+    if(selectedChain && sponsorshipEnabled) {
+      if (!feePayer || !feePayer.startsWith("0x"))
+        throw new Error("Please enter a valid feePayer address");
+    }
     if (!token) throw new Error("Please select a valid token");
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0)
       throw new Error("Please enter a valid amount");
@@ -314,7 +320,12 @@ function TwoStepTokenTransfer() {
       const transferParams = validateFormData();
       // Note overher: you can directly import tokenTransfer from the @okto_web3/react-sdk
       // On doing so, you'll directly get the jobId and you won't have to follow the below code.
-      const userOp = await tokenTransfer(oktoClient, transferParams);
+      let userOp; 
+      if(selectedChain && sponsorshipEnabled) {
+       userOp = await tokenTransfer(oktoClient, transferParams, feePayer as Address);
+      } else {
+        userOp = await tokenTransfer(oktoClient, transferParams);
+      }
       const signedOp = await oktoClient.signUserOp(userOp);
       const jobId = await oktoClient.executeUserOp(signedOp);
 
@@ -337,7 +348,12 @@ function TwoStepTokenTransfer() {
 
     try {
       const transferParams = validateFormData();
-      const userOp = await tokenTransfer(oktoClient, transferParams);
+      let userOp; 
+      if(selectedChain && sponsorshipEnabled) {
+       userOp = await tokenTransfer(oktoClient, transferParams, feePayer as Address);
+      } else {
+        userOp = await tokenTransfer(oktoClient, transferParams);
+      }
       setUserOp(userOp);
       showModal("unsignedOp");
       console.log("UserOp:", userOp);
@@ -424,6 +440,23 @@ function TwoStepTokenTransfer() {
             ? "Gas sponsorship is available ✅"
             : "⚠️ Sponsorship is not activated for this chain, the user must hold native tokens to proceed with the transfer. You can get the token from the respective faucets"}
         </p>
+      )}
+
+      {/* Feepayer address  */}
+      {selectedChain && sponsorshipEnabled && (
+        <div>
+        <label className="block text-sm font-medium text-gray-300 mb-1">
+          Feepayer Address
+        </label>
+        <input
+          type="text"
+          className="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white"
+          value={feePayer}
+          onChange={(e) => setFeePayer(e.target.value)}
+          placeholder="0x..."
+          disabled={isLoading}
+        />
+      </div>
       )}
 
       {/* Token Selection */}
