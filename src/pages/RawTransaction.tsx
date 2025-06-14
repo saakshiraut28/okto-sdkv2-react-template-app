@@ -63,6 +63,7 @@ function EVMRawTransaction() {
   const [value, setValue] = useState("");
   const [data, setData] = useState("");
   const [accounts, setAccounts] = useState<any[]>([]);
+  const [feePayer, setFeePayer] = useState<string>("");
   const [sponsorshipEnabled, setSponsorshipEnabled] = useState(false);
   // UI state
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -88,6 +89,7 @@ function EVMRawTransaction() {
     setFrom("");
     setTo("");
     setData("");
+    setFeePayer("");
     setUserOp(null);
     setSignedUserOp(null);
     setJobId(null);
@@ -202,10 +204,19 @@ function EVMRawTransaction() {
         },
       };
       console.log("Creating UserOp with params:", rawTransactionIntentParams);
-      const createdUserOp = await evmRawTransactionUserop(
-        oktoClient,
-        rawTransactionIntentParams
-      );
+      let createdUserOp;
+      if (selectedChain && sponsorshipEnabled) {
+        createdUserOp = await evmRawTransactionUserop(
+          oktoClient,
+          rawTransactionIntentParams,
+          feePayer as Address
+        );
+      } else {
+        createdUserOp = await evmRawTransactionUserop(
+          oktoClient,
+          rawTransactionIntentParams
+        );
+      }
       setUserOp(createdUserOp);
       showModal("unsignedOp");
     } catch (error: any) {
@@ -275,10 +286,16 @@ function EVMRawTransaction() {
         "Executing EVM Raw Transaction with params:",
         rawTransactionIntentParams
       );
-      const jobId = await evmRawTransaction(
-        oktoClient,
-        rawTransactionIntentParams
-      );
+      let jobId;
+      if (selectedChain && sponsorshipEnabled) {
+        jobId = await evmRawTransaction(
+          oktoClient,
+          rawTransactionIntentParams,
+          feePayer as Address
+        );
+      } else {
+        jobId = await evmRawTransaction(oktoClient, rawTransactionIntentParams);
+      }
       setJobId(jobId);
       showModal("jobId");
       console.log(jobId);
@@ -509,6 +526,21 @@ function EVMRawTransaction() {
                 ? "Gas sponsorship is available ✅"
                 : "⚠️ Sponsorship is not activated for this chain, the user must hold native tokens to proceed with the transfer. You can get the token from the respective faucets"}
             </p>
+          )}
+
+          {selectedChain && sponsorshipEnabled && (
+            <div className="w-full my-2">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Feepayer Address
+              </label>
+              <input
+                type="text"
+                className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                value={feePayer}
+                onChange={(e) => setFeePayer(e.target.value)}
+                placeholder="Enter feepayer Address"
+              />
+            </div>
           )}
 
           {/* Sender Address Input */}
