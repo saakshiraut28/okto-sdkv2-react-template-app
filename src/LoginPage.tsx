@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { STORAGE_KEY } from "./constants";
 import { ConfigContext } from "./context/ConfigContext";
 
-type Env = 'staging' | 'sandbox' | 'production';
+type Env = "staging" | "sandbox" | "production";
 interface Config {
   environment: Env;
   clientPrivateKey: Hash;
@@ -22,8 +22,8 @@ type TabType = "google" | "email" | "whatsapp" | "jwt" | "webview";
 export default function LoginPage() {
   const oktoClient = useOkto();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<TabType>("google");
-  const { config, setConfig } = useContext<ConfigContextType>(ConfigContext);
+  const { authMethod, setAuthMethod } = useContext(ConfigContext);
+  const { config, setConfig } = useContext(ConfigContext);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
   const { isModalOpen, authenticate } = useOktoWebView();
 
@@ -60,7 +60,8 @@ export default function LoginPage() {
     const formData = new FormData(e.target as HTMLFormElement);
     setConfig({
       environment: (formData.get("environment") as Env) || "sandbox",
-      clientPrivateKey: (formData.get("clientPrivateKey") as `0x${string}`) || "",
+      clientPrivateKey:
+        (formData.get("clientPrivateKey") as `0x${string}`) || "",
       clientSWA: (formData.get("clientSWA") as `0x${string}`) || "",
     });
     setIsConfigOpen(false);
@@ -319,11 +320,11 @@ export default function LoginPage() {
         <div className="flex border-b border-gray-700">
           <button
             onClick={() => {
-              setActiveTab("google");
+              setAuthMethod("google");
               resetValues();
             }}
             className={`flex-1 py-2 px-4 text-center ${
-              activeTab === "google"
+              authMethod === "google"
                 ? "text-blue-500 border-b-2 border-blue-500"
                 : "text-gray-400 hover:text-gray-300"
             }`}
@@ -332,11 +333,11 @@ export default function LoginPage() {
           </button>
           <button
             onClick={() => {
-              setActiveTab("email");
+              setAuthMethod("email");
               resetValues();
             }}
             className={`flex-1 py-2 px-4 text-center ${
-              activeTab === "email"
+              authMethod === "email"
                 ? "text-blue-500 border-b-2 border-blue-500"
                 : "text-gray-400 hover:text-gray-300"
             }`}
@@ -345,11 +346,11 @@ export default function LoginPage() {
           </button>
           <button
             onClick={() => {
-              setActiveTab("whatsapp");
+              setAuthMethod("whatsapp");
               resetValues();
             }}
             className={`flex-1 py-2 px-4 text-center ${
-              activeTab === "whatsapp"
+              authMethod === "whatsapp"
                 ? "text-blue-500 border-b-2 border-blue-500"
                 : "text-gray-400 hover:text-gray-300"
             }`}
@@ -358,11 +359,11 @@ export default function LoginPage() {
           </button>
           <button
             onClick={() => {
-              setActiveTab("jwt");
+              setAuthMethod("jwt");
               resetValues();
             }}
             className={`flex-1 py-2 px-4 text-center ${
-              activeTab === "jwt"
+              authMethod === "jwt"
                 ? "text-blue-500 border-b-2 border-blue-500"
                 : "text-gray-400 hover:text-gray-300"
             }`}
@@ -371,11 +372,11 @@ export default function LoginPage() {
           </button>
           <button
             onClick={() => {
-              setActiveTab("webview");
+              setAuthMethod("webview");
               resetValues();
             }}
             className={`flex-1 py-2 px-4 text-center ${
-              activeTab === "webview"
+              authMethod === "webview"
                 ? "text-blue-500 border-b-2 border-blue-500"
                 : "text-gray-400 hover:text-gray-300"
             }`}
@@ -394,7 +395,7 @@ export default function LoginPage() {
         {/* Tab Content */}
         <div className="space-y-6">
           {/* Google Login */}
-          {activeTab === "google" && (
+          {authMethod === "google" && (
             <div className="flex flex-col items-center space-y-4">
               <p className="text-gray-400 text-center">
                 Sign in with your Google account
@@ -409,7 +410,7 @@ export default function LoginPage() {
           )}
 
           {/* Email Login */}
-          {activeTab === "email" && (
+          {authMethod === "email" && (
             <div className="flex flex-col space-y-4">
               <input
                 type="email"
@@ -455,9 +456,9 @@ export default function LoginPage() {
           )}
 
           {/* WhatsApp Login */}
-          {activeTab === "whatsapp" && (
+          {authMethod === "whatsapp" && (
             <div className="flex flex-col space-y-4">
-                <p className="text-gray-300 text-sm">
+              <p className="text-gray-300 text-sm">
                 Format:{" "}
                 <code className="bg-gray-800 px-2 py-1 rounded text-blue-300">
                   &lt;10-digit number&gt;
@@ -511,7 +512,7 @@ export default function LoginPage() {
           )}
 
           {/* JWT Token Login */}
-          {activeTab === "jwt" && (
+          {authMethod === "jwt" && (
             <div className="flex flex-col space-y-4">
               <p className="text-gray-300 text-sm">
                 Format:{" "}
@@ -538,8 +539,8 @@ export default function LoginPage() {
             </div>
           )}
 
-           {/* Okto Onboarding Modal  */}
-           {activeTab === "webview" && (
+          {/* Okto Onboarding Modal  */}
+          {authMethod === "webview" && (
             <div className="flex flex-col items-center space-y-4">
               <p className="text-gray-400 text-center">
                 Sign in with Okto Onboarding Modal

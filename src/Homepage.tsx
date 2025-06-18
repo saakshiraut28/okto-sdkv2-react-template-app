@@ -12,6 +12,9 @@ import { googleLogout } from "@react-oauth/google";
 import { useNavigate } from "react-router-dom";
 import GetButton from "./components/GetButton";
 import SignComponent from "./components/SignComponent";
+import SessionInfoModal from "./components/SessionInfoModal";
+import { useContext } from "react";
+import { ConfigContext } from "./context/ConfigContext";
 
 export default function Homepage() {
   const oktoClient = useOkto();
@@ -19,6 +22,7 @@ export default function Homepage() {
   const isloggedIn = oktoClient.isLoggedIn();
   const userSWA = oktoClient.userSWA;
   const clientSWA = oktoClient.clientSWA;
+  const { config } = useContext(ConfigContext);
 
   // handles user logout process
   async function handleLogout() {
@@ -27,6 +31,8 @@ export default function Homepage() {
       googleLogout();
       oktoClient.sessionClear();
       localStorage.removeItem("googleIdToken");
+      localStorage.removeItem("okto_session");
+      localStorage.removeItem("okto_auth_method");
       navigate("/");
       return { result: "logout success" };
     } catch (error) {
@@ -38,7 +44,8 @@ export default function Homepage() {
   async function getSessionInfo() {
     const session = localStorage.getItem("okto_session");
     const sessionInfo = JSON.parse(session || "{}");
-    return { result: sessionInfo };
+    const oktoAuthToken = await oktoClient.getAuthorizationToken();
+    return { sessionInfo: sessionInfo, oktoAuthToken: oktoAuthToken };
   }
 
   return (
@@ -58,7 +65,7 @@ export default function Homepage() {
           <h2 className="text-violet-900 font-bold text-2xl">User Details</h2>
           <pre className="whitespace-pre-wrap break-words bg-white p-6 rounded-xl text-gray-800 w-full border border-violet-200 shadow-lg">
             {isloggedIn
-              ? `Logged in \n userSWA: ${userSWA} \n clientSWA: ${clientSWA}`
+              ? `Logged in \n userSWA: ${userSWA} \n clientSWA: ${clientSWA} \n environment: ${config.environment}`
               : "not signed in"}
           </pre>
         </div>
@@ -69,7 +76,7 @@ export default function Homepage() {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
             <GetButton title="Okto Log out" apiFn={handleLogout} tag="" />
-            <GetButton
+            <SessionInfoModal
               title="Show Session Info"
               apiFn={getSessionInfo}
               tag=""
@@ -124,7 +131,12 @@ export default function Homepage() {
               apiFn={getTokens}
               tag="Ensure the token is whitelisted"
             />
-            <button className="w-full p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors" onClick={() => navigate("/rawRead")}>Raw Read</button>
+            <button
+              className="w-full p-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+              onClick={() => navigate("/rawRead")}
+            >
+              Raw Read
+            </button>
           </div>
         </div>
 
