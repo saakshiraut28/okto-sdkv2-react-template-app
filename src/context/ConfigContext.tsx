@@ -3,6 +3,7 @@ import { Hash, Hex } from "@okto_web3/react-sdk";
 import { STORAGE_KEY } from "../constants";
 
 type Env = "staging" | "sandbox" | "production";
+type authType = "google" | "email" | "whatsapp" | "jwt" | "webview";
 
 interface Config {
   environment: Env;
@@ -13,6 +14,8 @@ interface Config {
 interface ConfigContextType {
   config: Config;
   setConfig: React.Dispatch<React.SetStateAction<Config>>;
+  authMethod: authType;
+  setAuthMethod: React.Dispatch<React.SetStateAction<authType>>;
 }
 
 const defaultConfig: Config = {
@@ -24,6 +27,8 @@ const defaultConfig: Config = {
 export const ConfigContext = createContext<ConfigContextType>({
   config: defaultConfig,
   setConfig: () => {},
+  authMethod: "google",
+  setAuthMethod: () => {},
 });
 
 export function ConfigProvider({ children }: { children: React.ReactNode }) {
@@ -52,17 +57,25 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
         import.meta.env.VITE_OKTO_CLIENT_SWA || defaultConfig.clientSWA,
     };
   });
+  const [authMethod, setAuthMethod] = useState<authType>(() => {
+    const savedMethod = localStorage.getItem("okto_auth_method") as authType;
+    if (savedMethod) return savedMethod;
+    else return "google";
+  });
 
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+      localStorage.setItem("okto_auth_method", authMethod);
     } catch (error) {
       console.error("Error saving config to localStorage:", error);
     }
-  }, [config]);
+  }, [config, authMethod]);
 
   return (
-    <ConfigContext.Provider value={{ config, setConfig }}>
+    <ConfigContext.Provider
+      value={{ config, setConfig, authMethod, setAuthMethod }}
+    >
       {children}
     </ConfigContext.Provider>
   );
