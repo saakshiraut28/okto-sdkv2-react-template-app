@@ -32,7 +32,6 @@ export default function Homepage() {
       oktoClient.sessionClear();
       localStorage.removeItem("googleIdToken");
       localStorage.removeItem("okto_session");
-      localStorage.removeItem("okto_auth_method");
       navigate("/");
       return { result: "logout success" };
     } catch (error) {
