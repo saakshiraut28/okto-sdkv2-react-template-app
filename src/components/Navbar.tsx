@@ -1,5 +1,6 @@
 import React from "react";
 import packageJson from "../../package.json";
+import { Github } from "lucide-react";
 
 const Navbar = () => {
   return (
@@ -14,6 +15,15 @@ const Navbar = () => {
             v{packageJson.dependencies["@okto_web3/react-sdk"]}
           </span>
         </div>
+        <a
+          href="https://github.com/okto-hq/okto-sdkv2-react-template-app"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-gray-300 hover:text-white transition-colors mr-4 flex items-center gap-2"
+        >
+          <Github size={20} />
+          <span className="text-sm">Template App Source Code</span>
+        </a>
       </div>
     </nav>
   );
