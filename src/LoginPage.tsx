@@ -85,6 +85,7 @@ export default function LoginPage() {
 
   const handleAuthenticate = async (idToken: string) => {
     try {
+      localStorage.removeItem("okto_session");
       const user = await oktoClient.loginUsingOAuth(
         { idToken, provider: "google" },
         (session: any) => {
@@ -108,6 +109,7 @@ export default function LoginPage() {
 
   const handleEmailAction = async () => {
     try {
+      localStorage.removeItem("okto_session");
       if (!email) return alert("Enter a valid email");
 
       if (status === "send_OTP") {
@@ -140,6 +142,7 @@ export default function LoginPage() {
 
   const handleWhatsappAction = async () => {
     try {
+      localStorage.removeItem("okto_session");
       if (!phoneNo) return alert("Enter a valid phone number");
 
       if (status === "send_OTP") {
@@ -172,6 +175,7 @@ export default function LoginPage() {
 
   const handleJwtAction = async () => {
     try {
+      localStorage.removeItem("okto_session");
       if (!jwt) return alert("Enter a valid Jwt token");
 
       const res = await oktoClient.loginUsingJWTAuthentication(
@@ -190,6 +194,7 @@ export default function LoginPage() {
 
   const handleWebview = async () => {
     try {
+      localStorage.removeItem("okto_session");
       const result = await authenticate({
         onSuccess(data) {
           console.log("login successfull. onSuccess function called", data);
@@ -555,14 +560,6 @@ export default function LoginPage() {
           )}
         </div>
       </div>
-
-      {/* Optional direct navigation */}
-      <button
-        onClick={() => navigate("/home")}
-        className="mt-4 px-6 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition"
-      >
-        Go to homepage
-      </button>
     </main>
   );
 }
