@@ -1,6 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Address, getChains, getOrdersHistory, getPortfolioNFT, nftTransfer, useOkto } from "@okto_web3/react-sdk";
+import {
+  Address,
+  getChains,
+  getOrdersHistory,
+  getPortfolioNFT,
+  nftTransfer,
+  useOkto,
+} from "@okto_web3/react-sdk";
 import { useNavigate } from "react-router-dom";
 import { nftTransfer as nftTransferUserOp } from "@okto_web3/react-sdk/userop";
 import { nftTransfer as nftTransferMain } from "@okto_web3/react-sdk";
@@ -629,12 +636,12 @@ function TransferNFT() {
             <p className="mt-2 text-sm text-gray-300 border border-indigo-700 p-2 my-2">
               {sponsorshipEnabled
                 ? "Gas sponsorship is available ✅"
-                : "⚠️ Sponsorship is not activated for this chain, the user must hold native tokens to proceed with the transfer. You can get the token from the respective faucets"}
+                : "⚠️ Sponsorship is not activated for this chain, the user must hold native tokens to proceed with the transfer. You can get the token from the respective faucets if using testnets"}
             </p>
           )}
 
-           {/* Feepayer address  */}
-           {selectedChain && sponsorshipEnabled && (
+          {/* Feepayer address  */}
+          {selectedChain && sponsorshipEnabled && (
             <div className="w-full mb-4">
               <label className="block text-sm font-medium text-gray-300 mb-1">
                 Feepayer Address
