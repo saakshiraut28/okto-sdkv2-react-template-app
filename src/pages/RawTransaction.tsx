@@ -7,6 +7,7 @@ import {
   getChains,
   getAccount,
   getOrdersHistory,
+  aptosRawTransaction,
 } from "@okto_web3/react-sdk";
 import { evmRawTransaction as evmRawTransactionUserop } from "@okto_web3/react-sdk/userop";
 import { useNavigate } from "react-router-dom";
@@ -56,6 +57,7 @@ function EVMRawTransaction() {
   const oktoClient = useOkto();
   const navigate = useNavigate();
 
+  const [mode, setMode] = useState<"EVM" | "APTOS">("EVM");
   const [chains, setChains] = useState<any[]>([]);
   const [selectedChain, setSelectedChain] = useState<any>("");
   const [from, setFrom] = useState("");
@@ -65,6 +67,10 @@ function EVMRawTransaction() {
   const [accounts, setAccounts] = useState<any[]>([]);
   const [feePayer, setFeePayer] = useState<string>("");
   const [sponsorshipEnabled, setSponsorshipEnabled] = useState(false);
+  const [moveFunction, setMoveFunction] = useState("");
+  const [typeArguments, setTypeArguments] = useState<string>(""); // comma-separated string
+  const [functionArguments, setFunctionArguments] = useState<string>(""); // comma-separated string
+
   // UI state
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
@@ -96,6 +102,11 @@ function EVMRawTransaction() {
     setOrderHistory(null);
     setError(null);
     closeAllModals();
+  };
+
+  const handleContractRead = () => {
+    if (mode === "EVM") return handleEVMRawTransaction();
+    return handleAptosRawTransaction();
   };
 
   // Data fetching
@@ -306,6 +317,56 @@ function EVMRawTransaction() {
     }
   };
 
+  const handleAptosRawTransaction = async () => {
+    setIsLoading(true);
+    setError(null);
+    setJobId(null);
+
+    try {
+      const payload = {
+        caip2Id: selectedChain,
+        transactions: [
+          {
+            function: moveFunction,
+            typeArguments: typeArguments
+              .split(",")
+              .map((arg) => arg.trim())
+              .filter(Boolean),
+            functionArguments: (() => {
+              try {
+                const input = `[${functionArguments}]`;
+                return JSON.parse(input, (_, value) => {
+                  if (typeof value === "string") {
+                    const trimmed = value.trim();
+                    if (/^0x[a-fA-F0-9]+$/.test(trimmed)) return trimmed;
+                    if (/^\d+$/.test(trimmed)) return Number(trimmed);
+                    return trimmed;
+                  }
+                  return value;
+                });
+              } catch (e) {
+                console.error("Invalid function arguments:", e);
+                return [];
+              }
+            })(),
+          },
+        ],
+      };
+
+      console.log("Executing Aptos Raw Transaction with params:", payload);
+
+      const jobId = await aptosRawTransaction(oktoClient, payload);
+      setJobId(jobId);
+      showModal("jobId"); // optional modal trigger
+      console.log("Job ID:", jobId);
+    } catch (error: any) {
+      console.error("Error executing Aptos Raw Transaction:", error);
+      setError(error.message || "Transaction failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Render modals
   const renderModals = () => (
     <>
@@ -498,124 +559,224 @@ function EVMRawTransaction() {
         .
       </p>
       <div className="flex flex-col gap-4 w-full max-w-2xl">
-        <div className="flex w-full flex-col items-center bg-black p-6 rounded-lg shadow-xl border border-gray-800">
-          {/* Network Selection */}
-          <div className="w-full my-2">
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Select Network
-            </label>
-            <select
-              className="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white"
-              value={selectedChain}
-              onChange={handleNetworkChange}
-              disabled={isLoading}
-            >
-              <option value="" disabled>
-                Select a network
-              </option>
-              {chains.map((chain) => (
-                <option key={chain.chainId} value={chain.caipId}>
-                  {chain.networkName} ({chain.caipId})
-                </option>
-              ))}
-            </select>
-          </div>
-          {selectedChain && (
-            <p className="mt-2 text-sm text-gray-300 border border-indigo-700 p-2 my-2">
-              {sponsorshipEnabled
-                ? "Gas sponsorship is available ✅"
-                : "⚠️ Sponsorship is not activated for this chain, the user must hold native tokens to proceed with the transfer. You can get the token from the respective faucets if using testnets"}
-            </p>
-          )}
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1">Select Chain Type</label>
+          <select
+            className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white"
+            value={mode}
+            onChange={(e) => setMode(e.target.value as "EVM" | "APTOS")}
+            disabled={isLoading}
+          >
+            <option value="EVM">EVM</option>
+            <option value="APTOS">Aptos</option>
+          </select>
+        </div>
 
-          {selectedChain && sponsorshipEnabled && (
+        {mode === "EVM" ? (
+          <div className="flex w-full flex-col items-center bg-black p-6 rounded-lg shadow-xl border border-gray-800">
+            {/* Network Selection */}
             <div className="w-full my-2">
               <label className="block text-sm font-medium text-gray-300 mb-1">
-                Feepayer Address
+                Select Network
+              </label>
+              <select
+                className="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white"
+                value={selectedChain}
+                onChange={handleNetworkChange}
+                disabled={isLoading}
+              >
+                <option value="" disabled>
+                  Select a network
+                </option>
+                {chains.map((chain) => (
+                  <option key={chain.chainId} value={chain.caipId}>
+                    {chain.networkName} ({chain.caipId})
+                  </option>
+                ))}
+              </select>
+            </div>
+            {selectedChain && (
+              <p className="mt-2 text-sm text-gray-300 border border-indigo-700 p-2 my-2">
+                {sponsorshipEnabled
+                  ? "Gas sponsorship is available ✅"
+                  : "⚠️ Sponsorship is not activated for this chain, the user must hold native tokens to proceed with the transfer. You can get the token from the respective faucets"}
+              </p>
+            )}
+
+            {selectedChain && sponsorshipEnabled && (
+              <div className="w-full my-2">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Feepayer Address
+                </label>
+                <input
+                  type="text"
+                  className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                  value={feePayer}
+                  onChange={(e) => setFeePayer(e.target.value)}
+                  placeholder="Enter feepayer Address"
+                />
+              </div>
+            )}
+
+            {/* Sender Address Input */}
+            <div className="w-full my-2">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Enter Address
               </label>
               <input
-                type="text"
                 className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-                value={feePayer}
-                onChange={(e) => setFeePayer(e.target.value)}
-                placeholder="Enter feepayer Address"
+                value={from}
+                onChange={(e) => setFrom(e.target.value)}
+                placeholder="Enter Sender Address"
+              />
+              <p className="mt-2 text-sm text-gray-300 border border-indigo-700 p-2 my-2">
+                ⬆️ This is the embedded wallet address associated with the
+                currently signed-in user.
+              </p>
+            </div>
+
+            {/* Recipient Address Input */}
+            <div className="w-full my-2">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Recipient Address
+              </label>
+              <input
+                className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                value={to}
+                onChange={(e) => setTo(e.target.value)}
+                placeholder="Enter Recipient Address"
               />
             </div>
-          )}
 
-          {/* Sender Address Input */}
-          <div className="w-full my-2">
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Enter Address
-            </label>
-            <input
-              className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-              value={from}
-              onChange={(e) => setFrom(e.target.value)}
-              placeholder="Enter Sender Address"
-            />
-            <p className="mt-2 text-sm text-gray-300 border border-indigo-700 p-2 my-2">
-              ⬆️ This is the embedded wallet address associated with the
-              currently signed-in user.
-            </p>
-          </div>
+            {/* Amount Input */}
+            <div className="w-full my-2">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Amount
+              </label>
+              <input
+                className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder="Enter Value in Wei"
+              />
+            </div>
 
-          {/* Recipient Address Input */}
-          <div className="w-full my-2">
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Recipient Address
-            </label>
-            <input
-              className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-              value={to}
-              onChange={(e) => setTo(e.target.value)}
-              placeholder="Enter Recipient Address"
-            />
-          </div>
+            {/* Symbol Input */}
+            <div className="w-full my-2">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Data (Optionally '0x')
+              </label>
+              <input
+                className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                value={data}
+                onChange={(e) => setData(e.target.value)}
+                placeholder="Enter Data (optional)"
+              />
+            </div>
 
-          {/* Amount Input */}
-          <div className="w-full my-2">
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Amount
-            </label>
-            <input
-              className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-              value={value}
-              onChange={(e) => setValue(e.target.value)}
-              placeholder="Enter Value in Wei"
-            />
+            <div className="flex gap-x-2 w-full">
+              <button
+                className="w-full p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:bg-blue-800 disabled:opacity-50"
+                onClick={handleEVMRawTransaction}
+                disabled={isLoading || !selectedChain || !from || !to || !value}
+              >
+                {isLoading ? "Processing..." : "Raw Transaction (Direct)"}
+              </button>
+              <button
+                className="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors disabled:bg-purple-800 disabled:opacity-50"
+                onClick={handleCreateUserOp}
+                disabled={isLoading || !selectedChain || !from || !to || !value}
+              >
+                {isLoading ? "Processing..." : "Raw Transaction UserOp"}
+              </button>
+            </div>
           </div>
+        ) : (
+          <div className="flex w-full flex-col items-center bg-black p-6 rounded-lg shadow-xl border border-gray-800">
+            {/* Aptos Network Selection */}
+            <div className="w-full my-2">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Select Network
+              </label>
+              <select
+                className="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white"
+                value={selectedChain}
+                onChange={(e) => setSelectedChain(e.target.value)}
+                disabled={isLoading}
+              >
+                <option value="" disabled>Select a network</option>
+                {chains.map((chain) => (
+                  <option key={chain.chainId} value={chain.caipId}>
+                    {chain.networkName} ({chain.caipId})
+                  </option>
+                ))}
+              </select>
+            </div>
 
-          {/* Symbol Input */}
-          <div className="w-full my-2">
-            <label className="block text-sm font-medium text-gray-300 mb-1">
-              Data (Optionally '0x')
-            </label>
-            <input
-              className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
-              value={data}
-              onChange={(e) => setData(e.target.value)}
-              placeholder="Enter Data (optional)"
-            />
-          </div>
+            {/* Move Function Input */}
+            <div className="w-full my-2">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Function
+              </label>
+              <input
+                className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                value={moveFunction}
+                onChange={(e) => setMoveFunction(e.target.value)}
+                placeholder="e.g. 0x1::coin::transfer"
+              />
+            </div>
 
-          <div className="flex gap-x-2 w-full">
-            <button
-              className="w-full p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:bg-blue-800 disabled:opacity-50"
-              onClick={handleEVMRawTransaction}
-              disabled={isLoading || !selectedChain || !from || !to || !value}
-            >
-              {isLoading ? "Processing..." : "Raw Transaction (Direct)"}
-            </button>
-            <button
-              className="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors disabled:bg-purple-800 disabled:opacity-50"
-              onClick={handleCreateUserOp}
-              disabled={isLoading || !selectedChain || !from || !to || !value}
-            >
-              {isLoading ? "Processing..." : "Raw Transaction UserOp"}
-            </button>
+            {/* Type Arguments Input */}
+            <div className="w-full my-2">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Type Arguments (comma separated)
+              </label>
+              <input
+                className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                value={typeArguments}
+                onChange={(e) => setTypeArguments(e.target.value)}
+                placeholder="e.g. 0x1::aptos_coin::AptosCoin"
+              />
+            </div>
+
+            {/* Function Arguments Input */}
+            <div className="w-full my-2">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Function Arguments (comma separated)
+              </label>
+              <input
+                className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                value={functionArguments}
+                onChange={(e) => setFunctionArguments(e.target.value)}
+                placeholder="e.g. recipient_address,1000000"
+              />
+            </div>
+
+            {/* Raw Transaction Button */}
+            <div className="flex gap-x-2 w-full">
+              <button
+                className="w-full p-3 bg-green-600 hover:bg-green-700 text-white rounded transition-colors disabled:bg-green-800 disabled:opacity-50"
+                onClick={handleAptosRawTransaction}
+                disabled={isLoading || !selectedChain || !moveFunction}
+              >
+                {isLoading ? "Processing..." : "Raw Transaction (Aptos)"}
+              </button>
+            </div>
+
+            {/* Status/Error */}
+            {error && (
+              <p className="mt-2 text-sm text-red-400 border border-red-800 p-2 my-2">
+                ❌ Error: {error}
+              </p>
+            )}
+            {jobId && (
+              <p className="mt-2 text-sm text-green-400 border border-green-800 p-2 my-2">
+                ✅ Job ID: {jobId}
+              </p>
+            )}
           </div>
-        </div>
+        )}
+
       </div>
       {renderModals()}
     </main>

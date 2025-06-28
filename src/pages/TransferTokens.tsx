@@ -9,7 +9,8 @@ import {
   UserPortfolioData,
 } from "@okto_web3/react-sdk";
 import { tokenTransfer } from "@okto_web3/react-sdk/userop";
-import { getChains } from "@okto_web3/react-sdk";
+import { tokenTransfer as tokenTransferSdk } from "@okto_web3/react-sdk/userop";
+import { getChains } from '@okto_web3/react-sdk';
 import { useNavigate } from "react-router-dom";
 import CopyButton from "../components/CopyButton";
 import ViewExplorerURL from "../components/ViewExplorerURL";
@@ -318,23 +319,15 @@ function TwoStepTokenTransfer() {
 
     try {
       const transferParams = validateFormData();
-      // Note overher: you can directly import tokenTransfer from the @okto_web3/react-sdk
-      // On doing so, you'll directly get the jobId and you won't have to follow the below code.
-      let userOp;
-      if (selectedChain && sponsorshipEnabled) {
-        userOp = await tokenTransfer(
-          oktoClient,
-          transferParams,
-          feePayer as Address
-        );
+
+      if(selectedChain && sponsorshipEnabled) {
+        const jobId = await tokenTransferSdk(oktoClient, transferParams, feePayer as Address);
       } else {
-        userOp = await tokenTransfer(oktoClient, transferParams);
+        const jobId = await tokenTransferSdk(oktoClient, transferParams);
       }
-      const signedOp = await oktoClient.signUserOp(userOp);
-      const jobId = await oktoClient.executeUserOp(signedOp);
 
       setJobId(jobId);
-      await handleGetOrderHistory(jobId);
+      await handleGetOrderHistory(jobId ? jobId : undefined);
       showModal("jobId");
 
       console.log("Transfer jobId:", jobId);
