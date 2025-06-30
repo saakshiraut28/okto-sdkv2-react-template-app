@@ -1,0 +1,1 @@
+// A shared React Query hook for fetching Accont data.
