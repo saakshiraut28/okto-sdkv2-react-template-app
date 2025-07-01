@@ -4,8 +4,11 @@ import { STORAGE_KEY } from "../constants";
 
 type Env = "staging" | "sandbox" | "production";
 type authType = "google" | "email" | "whatsapp" | "jwt" | "webview";
+type Mode = "api" | "sdk";
 
 interface Config {
+  mode: Mode;
+  apiUrl: string;
   environment: Env;
   clientPrivateKey: Hash;
   clientSWA: Hex;
@@ -19,6 +22,8 @@ interface ConfigContextType {
 }
 
 const defaultConfig: Config = {
+  mode: "sdk",
+  apiUrl: "",
   environment: "sandbox",
   clientPrivateKey: "" as Hash,
   clientSWA: "" as Hex,
@@ -38,6 +43,8 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
       if (savedConfig) {
         const parsed = JSON.parse(savedConfig);
         return {
+          mode: (parsed.mode || defaultConfig.mode) as Mode,
+          apiUrl: (parsed.apiUrl || defaultConfig.apiUrl) as string,
           environment: (parsed.environment || defaultConfig.environment) as Env,
           clientPrivateKey:
             parsed.clientPrivateKey || defaultConfig.clientPrivateKey,
@@ -48,6 +55,8 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
       console.error("Error loading config from localStorage:", error);
     }
     return {
+      mode: defaultConfig.mode,
+      apiUrl: defaultConfig.apiUrl,
       environment:
         import.meta.env.VITE_OKTO_ENVIRONMENT || defaultConfig.environment,
       clientPrivateKey:

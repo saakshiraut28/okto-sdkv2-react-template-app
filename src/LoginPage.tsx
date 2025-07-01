@@ -6,7 +6,11 @@ import { STORAGE_KEY } from "./constants";
 import { ConfigContext } from "./context/ConfigContext";
 
 type Env = "staging" | "sandbox" | "production";
+type Mode = "api" | "sdk";
+
 interface Config {
+  mode: Mode,
+  apiUrl: string,
   environment: Env;
   clientPrivateKey: Hash;
   clientSWA: Hex;
@@ -59,6 +63,8 @@ export default function LoginPage() {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
     setConfig({
+      mode: (formData.get("mode") as Mode) || "sdk",
+      apiUrl: (formData.get("apiUrl") as string) || "",
       environment: (formData.get("environment") as Env) || "sandbox",
       clientPrivateKey:
         (formData.get("clientPrivateKey") as `0x${string}`) || "",
@@ -70,6 +76,8 @@ export default function LoginPage() {
   // Update the handleResetConfig function
   const handleResetConfig = () => {
     const defaultConfig = {
+      mode: ("sdk" as Mode),
+      apiUrl: "",
       environment: import.meta.env.VITE_OKTO_ENVIRONMENT || "sandbox",
       clientPrivateKey: import.meta.env.VITE_OKTO_CLIENT_PRIVATE_KEY || "",
       clientSWA: import.meta.env.VITE_OKTO_CLIENT_SWA || "",
@@ -218,8 +226,8 @@ export default function LoginPage() {
 
   return (
     <main className="min-h-[90vh] bg-gray-900 flex flex-col items-center justify-center p-6 md:p-12">
-      {/* Config Button and Form */}
       <div className="bg-black/50 border border-gray-800 rounded-lg shadow-xl p-6 w-full max-w-4xl mb-6">
+        {/* Config Button */}
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-semibold text-white">Configuration</h2>
           <button
@@ -232,6 +240,18 @@ export default function LoginPage() {
 
         {!isConfigOpen && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="text-sm text-gray-400">
+              <p className="flex items-center">
+                <span>Mode:</span>
+                <span className="text-white ml-2">{config.mode}</span>
+              </p>
+            </div>
+            <div className="text-sm text-gray-400">
+              <p className="flex items-center">
+                <span>API URL:</span>
+                <span className="text-white ml-2">{config.apiUrl}</span>
+              </p>
+            </div>
             <div className="text-sm text-gray-400">
               <p className="flex items-center">
                 <span>Environment:</span>
@@ -260,6 +280,30 @@ export default function LoginPage() {
         {isConfigOpen && (
           <form onSubmit={handleConfigUpdate}>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">
+                  Mode
+                </label>
+                <select
+                  name="mode"
+                  defaultValue={config.mode}
+                  className="w-full p-2 text-sm border border-gray-700 rounded-lg bg-gray-800 text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                >
+                  <option value="sdk">SDK</option>
+                  <option value="api">API</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">
+                  API URL
+                </label>
+                <input
+                  type="text"
+                  name="apiUrl"
+                  placeholder="Enter your API URL"
+                  className="w-full p-2 text-sm border border-gray-700 rounded-lg bg-gray-800 text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                />
+              </div>
               <div>
                 <label className="block text-xs font-medium text-gray-400 mb-1">
                   Environment
@@ -328,11 +372,10 @@ export default function LoginPage() {
               setAuthMethod("google");
               resetValues();
             }}
-            className={`flex-1 py-2 px-4 text-center ${
-              authMethod === "google"
-                ? "text-blue-500 border-b-2 border-blue-500"
-                : "text-gray-400 hover:text-gray-300"
-            }`}
+            className={`flex-1 py-2 px-4 text-center ${authMethod === "google"
+              ? "text-blue-500 border-b-2 border-blue-500"
+              : "text-gray-400 hover:text-gray-300"
+              }`}
           >
             Google
           </button>
@@ -341,11 +384,10 @@ export default function LoginPage() {
               setAuthMethod("email");
               resetValues();
             }}
-            className={`flex-1 py-2 px-4 text-center ${
-              authMethod === "email"
-                ? "text-blue-500 border-b-2 border-blue-500"
-                : "text-gray-400 hover:text-gray-300"
-            }`}
+            className={`flex-1 py-2 px-4 text-center ${authMethod === "email"
+              ? "text-blue-500 border-b-2 border-blue-500"
+              : "text-gray-400 hover:text-gray-300"
+              }`}
           >
             Email
           </button>
@@ -354,11 +396,10 @@ export default function LoginPage() {
               setAuthMethod("whatsapp");
               resetValues();
             }}
-            className={`flex-1 py-2 px-4 text-center ${
-              authMethod === "whatsapp"
-                ? "text-blue-500 border-b-2 border-blue-500"
-                : "text-gray-400 hover:text-gray-300"
-            }`}
+            className={`flex-1 py-2 px-4 text-center ${authMethod === "whatsapp"
+              ? "text-blue-500 border-b-2 border-blue-500"
+              : "text-gray-400 hover:text-gray-300"
+              }`}
           >
             WhatsApp
           </button>
@@ -367,11 +408,10 @@ export default function LoginPage() {
               setAuthMethod("jwt");
               resetValues();
             }}
-            className={`flex-1 py-2 px-4 text-center ${
-              authMethod === "jwt"
-                ? "text-blue-500 border-b-2 border-blue-500"
-                : "text-gray-400 hover:text-gray-300"
-            }`}
+            className={`flex-1 py-2 px-4 text-center ${authMethod === "jwt"
+              ? "text-blue-500 border-b-2 border-blue-500"
+              : "text-gray-400 hover:text-gray-300"
+              }`}
           >
             JWT
           </button>
@@ -380,11 +420,10 @@ export default function LoginPage() {
               setAuthMethod("webview");
               resetValues();
             }}
-            className={`flex-1 py-2 px-4 text-center ${
-              authMethod === "webview"
-                ? "text-blue-500 border-b-2 border-blue-500"
-                : "text-gray-400 hover:text-gray-300"
-            }`}
+            className={`flex-1 py-2 px-4 text-center ${authMethod === "webview"
+              ? "text-blue-500 border-b-2 border-blue-500"
+              : "text-gray-400 hover:text-gray-300"
+              }`}
           >
             Onboarding Modal
           </button>
