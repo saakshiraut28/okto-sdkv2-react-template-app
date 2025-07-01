@@ -41,10 +41,16 @@ export default function Homepage() {
   }
 
   async function getSessionInfo() {
-    const session = localStorage.getItem("okto_session");
-    const sessionInfo = JSON.parse(session || "{}");
-    const oktoAuthToken = await oktoClient.getAuthorizationToken();
-    return { sessionInfo: sessionInfo, oktoAuthToken: oktoAuthToken };
+    if (config.mode === "api") {
+      const session = localStorage.getItem("okto_session");
+      const sessionInfo = JSON.parse(session || "{}");
+      return { sessionInfo: sessionInfo }
+    } else {
+      const session = localStorage.getItem("okto_session");
+      const sessionInfo = JSON.parse(session || "{}");
+      const oktoAuthToken = await oktoClient.getAuthorizationToken();
+      return { sessionInfo: sessionInfo, oktoAuthToken: oktoAuthToken };
+    }
   }
 
   return (

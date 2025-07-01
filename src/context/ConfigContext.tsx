@@ -25,8 +25,8 @@ const defaultConfig: Config = {
   mode: "sdk",
   apiUrl: "",
   environment: "sandbox",
-  clientPrivateKey: "" as Hash,
-  clientSWA: "" as Hex,
+  clientPrivateKey: "0x7a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b" as Hash, // sample address
+  clientSWA: "0xAbCdEf01234567890AbCdEf01234567890AbCdEf" as Hex, // sample address
 };
 
 export const ConfigContext = createContext<ConfigContextType>({
