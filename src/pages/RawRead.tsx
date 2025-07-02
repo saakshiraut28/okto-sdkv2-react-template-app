@@ -43,9 +43,10 @@ function RawRead() {
     setError(null);
 
     try {
-      if (!contractAddress.startsWith("0x")) throw new Error("Invalid contract address");
+      if (!contractAddress.startsWith("0x"))
+        throw new Error("Invalid contract address");
       const abi = JSON.parse(abiJson);
-      const args = argsJson?.trim() ? JSON.parse(argsJson) : {};      
+      const args = argsJson?.trim() ? JSON.parse(argsJson) : {};
 
       const payload = {
         caip2Id: selectedChain,
@@ -71,7 +72,8 @@ function RawRead() {
     setError(null);
 
     try {
-      if (!aptosFunction.trim()) throw new Error("Aptos function name is required");
+      if (!aptosFunction.trim())
+        throw new Error("Aptos function name is required");
 
       const payload = {
         caip2Id: selectedChain,
@@ -108,7 +110,9 @@ function RawRead() {
     return (
       <div className="w-full bg-gray-900 min-h-screen p-6">
         <div className="max-w-4xl mx-auto space-y-6">
-          <h1 className="text-2xl font-bold text-white text-center">Contract Read Result</h1>
+          <h1 className="text-2xl font-bold text-white text-center">
+            Contract Read Result
+          </h1>
           <div className="bg-gray-800 p-6 rounded-lg">
             <div className="bg-gray-900 p-4 rounded">
               <CopyButton text={JSON.stringify(readResult, null, 2)} />
@@ -138,7 +142,9 @@ function RawRead() {
           Home
         </button>
 
-        <h1 className="text-2xl font-bold text-white text-center">Contract Read</h1>
+        <h1 className="text-2xl font-bold text-white text-center">
+          Contract Read
+        </h1>
 
         <p className="text-white text-center">
           Read data from smart contracts.{" "}
@@ -161,7 +167,9 @@ function RawRead() {
         <div className="bg-gray-800 p-6 rounded-lg space-y-4">
           {/* Mode Selector */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Select Chain Type</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Select Chain Type
+            </label>
             <select
               className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white"
               value={mode}
@@ -175,7 +183,9 @@ function RawRead() {
 
           {/* Network */}
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-1">Select Network</label>
+            <label className="block text-sm font-medium text-gray-300 mb-1">
+              Select Network
+            </label>
             <select
               className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white"
               value={selectedChain}
@@ -195,7 +205,9 @@ function RawRead() {
             <>
               {/* Contract Address */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Contract Address</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Contract Address
+                </label>
                 <input
                   type="text"
                   className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white"
@@ -207,7 +219,9 @@ function RawRead() {
 
               {/* ABI JSON */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Function ABI (JSON)</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Function ABI (JSON)
+                </label>
                 <textarea
                   className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white h-36"
                   value={abiJson}
@@ -218,7 +232,9 @@ function RawRead() {
 
               {/* Args JSON */}
               <div>
-                <label className="block text-sm font-medium text-gray-300 mb-1">Args Object (JSON)</label>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Args Object (JSON)
+                </label>
                 <textarea
                   className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white h-28"
                   value={argsJson}
@@ -229,62 +245,68 @@ function RawRead() {
             </>
           ) : (
             <>
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Aptos Function</label>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Aptos Function
+                </label>
+                <input
+                  type="text"
+                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white"
+                  value={aptosFunction}
+                  onChange={(e) => setAptosFunction(e.target.value)}
+                  placeholder="0x1::coin::balance"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Type Arguments
+                </label>
+                {aptosTypeArgs.map((arg, i) => (
                   <input
-                    type="text"
-                    className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white"
-                    value={aptosFunction}
-                    onChange={(e) => setAptosFunction(e.target.value)}
-                    placeholder="0x1::coin::balance"
+                    key={i}
+                    className="w-full mb-2 p-3 bg-gray-700 border border-gray-600 rounded text-white"
+                    value={arg}
+                    onChange={(e) => {
+                      const updated = [...aptosTypeArgs];
+                      updated[i] = e.target.value;
+                      setAptosTypeArgs(updated);
+                    }}
+                    placeholder="0x1::aptos_coin::AptosCoin"
                   />
-                </div>
+                ))}
+                <button
+                  onClick={() => setAptosTypeArgs([...aptosTypeArgs, ""])}
+                  className="text-indigo-400 text-sm"
+                >
+                  + Add Type Argument
+                </button>
+              </div>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Type Arguments</label>
-                  {aptosTypeArgs.map((arg, i) => (
-                    <input
-                      key={i}
-                      className="w-full mb-2 p-3 bg-gray-700 border border-gray-600 rounded text-white"
-                      value={arg}
-                      onChange={(e) => {
-                        const updated = [...aptosTypeArgs];
-                        updated[i] = e.target.value;
-                        setAptosTypeArgs(updated);
-                      }}
-                      placeholder="0x1::aptos_coin::AptosCoin"
-                    />
-                  ))}
-                  <button
-                    onClick={() => setAptosTypeArgs([...aptosTypeArgs, ""])}
-                    className="text-indigo-400 text-sm"
-                  >
-                    + Add Type Argument
-                  </button>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-300 mb-1">Function Arguments</label>
-                  {aptosFuncArgs.map((arg, i) => (
-                    <input
-                      key={i}
-                      className="w-full mb-2 p-3 bg-gray-700 border border-gray-600 rounded text-white"
-                      value={arg}
-                      onChange={(e) => {
-                        const updated = [...aptosFuncArgs];
-                        updated[i] = e.target.value;
-                        setAptosFuncArgs(updated);
-                      }}
-                      placeholder="0x<user_address>"
-                    />
-                  ))}
-                  <button
-                    onClick={() => setAptosFuncArgs([...aptosFuncArgs, ""])}
-                    className="text-indigo-400 text-sm"
-                  >
-                    + Add Function Argument
-                  </button>
-                </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Function Arguments
+                </label>
+                {aptosFuncArgs.map((arg, i) => (
+                  <input
+                    key={i}
+                    className="w-full mb-2 p-3 bg-gray-700 border border-gray-600 rounded text-white"
+                    value={arg}
+                    onChange={(e) => {
+                      const updated = [...aptosFuncArgs];
+                      updated[i] = e.target.value;
+                      setAptosFuncArgs(updated);
+                    }}
+                    placeholder="0x<user_address>"
+                  />
+                ))}
+                <button
+                  onClick={() => setAptosFuncArgs([...aptosFuncArgs, ""])}
+                  className="text-indigo-400 text-sm"
+                >
+                  + Add Function Argument
+                </button>
+              </div>
             </>
           )}
 

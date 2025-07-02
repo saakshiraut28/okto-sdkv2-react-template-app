@@ -10,7 +10,7 @@ import {
 } from "@okto_web3/react-sdk";
 import { tokenTransfer } from "@okto_web3/react-sdk/userop";
 import { tokenTransfer as tokenTransferSdk } from "@okto_web3/react-sdk/userop";
-import { getChains } from '@okto_web3/react-sdk';
+import { getChains } from "@okto_web3/react-sdk";
 import { useNavigate } from "react-router-dom";
 import CopyButton from "../components/CopyButton";
 import ViewExplorerURL from "../components/ViewExplorerURL";
@@ -320,8 +320,12 @@ function TwoStepTokenTransfer() {
     try {
       const transferParams = validateFormData();
 
-      if(selectedChain && sponsorshipEnabled) {
-        const jobId = await tokenTransferSdk(oktoClient, transferParams, feePayer as Address);
+      if (selectedChain && sponsorshipEnabled) {
+        const jobId = await tokenTransferSdk(
+          oktoClient,
+          transferParams,
+          feePayer as Address
+        );
       } else {
         const jobId = await tokenTransferSdk(oktoClient, transferParams);
       }

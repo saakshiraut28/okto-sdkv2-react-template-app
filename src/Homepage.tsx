@@ -44,7 +44,7 @@ export default function Homepage() {
     if (config.mode === "api") {
       const session = localStorage.getItem("okto_session");
       const sessionInfo = JSON.parse(session || "{}");
-      return { sessionInfo: sessionInfo }
+      return { sessionInfo: sessionInfo };
     } else {
       const session = localStorage.getItem("okto_session");
       const sessionInfo = JSON.parse(session || "{}");

@@ -1,1 +1,1 @@
-export const STORAGE_KEY = 'okto_config'; 
+export const STORAGE_KEY = "okto_config";
