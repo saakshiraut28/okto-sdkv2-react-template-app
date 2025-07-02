@@ -9,17 +9,20 @@ To contribute to this template, please follow this standard Git workflow:
 1. **Fork the Repository:** Create your own fork of the `okto-sdkv2-react-template-app` repository on GitHub.
 
 2. **Create a Feature Branch:** Create a dedicated branch for your contribution, named descriptively:
+
    ```bash
-   git checkout -b feat/your-feature-name 
+   git checkout -b feat/your-feature-name
    # Example: git checkout -b feat/add-whatsapp-authentication
    ```
 
 3. **Commit Your Changes:** Make your changes and commit them. Please adhere to [Conventional Commits](https://www.conventionalcommits.org) for commit message formatting:
+
    ```bash
    git commit -m "feat: add whatsapp otp authentication"
    ```
 
 4. **Push to Your Fork:** Push your feature branch to your forked repository:
+
    ```bash
    git push origin feat/your-feature-name
    ```
@@ -114,4 +117,5 @@ Help us improve by submitting detailed issue reports using these templates:
 ## Join the Community 💬
 
 For real-time discussions and support:
+
 - Join our [Discord Server](https://discord.com/invite/okto-916349620383252511)

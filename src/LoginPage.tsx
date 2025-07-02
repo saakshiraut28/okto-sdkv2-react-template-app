@@ -12,13 +12,12 @@ import { useNavigate } from "react-router-dom";
 type TabType = "google" | "email" | "whatsapp" | "jwt" | "webview";
 
 export default function LoginPage() {
-
   const { authMethod, setAuthMethod } = useContext(ConfigContext);
   const oktoClient = useOkto();
   const navigate = useNavigate();
 
-  useEffect(()=>{
-    if(oktoClient.isLoggedIn()) navigate("/home");
+  useEffect(() => {
+    if (oktoClient.isLoggedIn()) navigate("/home");
     return;
   }, []);
 
@@ -35,10 +34,11 @@ export default function LoginPage() {
             onClick={() => {
               setAuthMethod("google");
             }}
-            className={`flex-1 py-2 px-4 text-center ${authMethod === "google"
-              ? "text-blue-500 border-b-2 border-blue-500"
-              : "text-gray-400 hover:text-gray-300"
-              }`}
+            className={`flex-1 py-2 px-4 text-center ${
+              authMethod === "google"
+                ? "text-blue-500 border-b-2 border-blue-500"
+                : "text-gray-400 hover:text-gray-300"
+            }`}
           >
             Google
           </button>
@@ -46,10 +46,11 @@ export default function LoginPage() {
             onClick={() => {
               setAuthMethod("email");
             }}
-            className={`flex-1 py-2 px-4 text-center ${authMethod === "email"
-              ? "text-blue-500 border-b-2 border-blue-500"
-              : "text-gray-400 hover:text-gray-300"
-              }`}
+            className={`flex-1 py-2 px-4 text-center ${
+              authMethod === "email"
+                ? "text-blue-500 border-b-2 border-blue-500"
+                : "text-gray-400 hover:text-gray-300"
+            }`}
           >
             Email
           </button>
@@ -57,10 +58,11 @@ export default function LoginPage() {
             onClick={() => {
               setAuthMethod("whatsapp");
             }}
-            className={`flex-1 py-2 px-4 text-center ${authMethod === "whatsapp"
-              ? "text-blue-500 border-b-2 border-blue-500"
-              : "text-gray-400 hover:text-gray-300"
-              }`}
+            className={`flex-1 py-2 px-4 text-center ${
+              authMethod === "whatsapp"
+                ? "text-blue-500 border-b-2 border-blue-500"
+                : "text-gray-400 hover:text-gray-300"
+            }`}
           >
             WhatsApp
           </button>
@@ -68,10 +70,11 @@ export default function LoginPage() {
             onClick={() => {
               setAuthMethod("jwt");
             }}
-            className={`flex-1 py-2 px-4 text-center ${authMethod === "jwt"
-              ? "text-blue-500 border-b-2 border-blue-500"
-              : "text-gray-400 hover:text-gray-300"
-              }`}
+            className={`flex-1 py-2 px-4 text-center ${
+              authMethod === "jwt"
+                ? "text-blue-500 border-b-2 border-blue-500"
+                : "text-gray-400 hover:text-gray-300"
+            }`}
           >
             JWT
           </button>
@@ -79,10 +82,11 @@ export default function LoginPage() {
             onClick={() => {
               setAuthMethod("webview");
             }}
-            className={`flex-1 py-2 px-4 text-center ${authMethod === "webview"
-              ? "text-blue-500 border-b-2 border-blue-500"
-              : "text-gray-400 hover:text-gray-300"
-              }`}
+            className={`flex-1 py-2 px-4 text-center ${
+              authMethod === "webview"
+                ? "text-blue-500 border-b-2 border-blue-500"
+                : "text-gray-400 hover:text-gray-300"
+            }`}
           >
             Onboarding Modal
           </button>
@@ -98,29 +102,19 @@ export default function LoginPage() {
         {/* Tab Content */}
         <div className="space-y-6">
           {/* Google Login */}
-          {authMethod === "google" && (
-            <GoogleLogin />
-          )}
+          {authMethod === "google" && <GoogleLogin />}
 
           {/* Email Login */}
-          {authMethod === "email" && (
-            <EmailLogin />
-          )}
+          {authMethod === "email" && <EmailLogin />}
 
           {/* WhatsApp Login */}
-          {authMethod === "whatsapp" && (
-            <WhatsappLogin />
-          )}
+          {authMethod === "whatsapp" && <WhatsappLogin />}
 
           {/* JWT Token Login */}
-          {authMethod === "jwt" && (
-            <JWTLogin />
-          )}
+          {authMethod === "jwt" && <JWTLogin />}
 
           {/* Okto Onboarding Modal  */}
-          {authMethod === "webview" && (
-            <WebViewLogin />
-          )}
+          {authMethod === "webview" && <WebViewLogin />}
         </div>
       </div>
     </main>

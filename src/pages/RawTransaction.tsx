@@ -560,7 +560,9 @@ function EVMRawTransaction() {
       </p>
       <div className="flex flex-col gap-4 w-full max-w-2xl">
         <div>
-          <label className="block text-sm font-medium text-gray-300 mb-1">Select Chain Type</label>
+          <label className="block text-sm font-medium text-gray-300 mb-1">
+            Select Chain Type
+          </label>
           <select
             className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white"
             value={mode}
@@ -704,7 +706,9 @@ function EVMRawTransaction() {
                 onChange={(e) => setSelectedChain(e.target.value)}
                 disabled={isLoading}
               >
-                <option value="" disabled>Select a network</option>
+                <option value="" disabled>
+                  Select a network
+                </option>
                 {chains.map((chain) => (
                   <option key={chain.chainId} value={chain.caipId}>
                     {chain.networkName} ({chain.caipId})
@@ -776,7 +780,6 @@ function EVMRawTransaction() {
             )}
           </div>
         )}
-
       </div>
       {renderModals()}
     </main>

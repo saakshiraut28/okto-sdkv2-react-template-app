@@ -1,4 +1,3 @@
-import { useOkto } from "@okto_web3/react-sdk";
 import { Route, Routes } from "react-router-dom";
 import "./App.css";
 import Homepage from "./Homepage";
@@ -10,11 +9,6 @@ import TransferTokens from "./pages/TransferTokens";
 import RawRead from "./pages/RawRead";
 
 function App() {
-  const oktoClient = useOkto();
-
-  //check if user is already logged in
-  const isloggedIn = oktoClient.isLoggedIn();
-
   return (
     <>
       <Routes>

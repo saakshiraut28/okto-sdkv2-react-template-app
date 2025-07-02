@@ -14,21 +14,21 @@ const CopyButton = ({ text }: { text: string }) => {
     }
   };
 
-    return (
-      <div className="flex justify-end items-end">
-        <button
-          onClick={handleCopy}
-          className="p-2 rounded-full bg-gray-800 hover:bg-gray-600 transition block"
-          aria-label="Copy to clipboard"
-        >
-          {copied ? (
-            <ClipboardCheck className="text-green-600 w-4 h-4" />
-          ) : (
-            <Clipboard className="w-4 h-4" />
-          )}
-        </button>
-      </div>
-    );
+  return (
+    <div className="flex justify-end items-end">
+      <button
+        onClick={handleCopy}
+        className="p-2 rounded-full bg-gray-800 hover:bg-gray-600 transition block"
+        aria-label="Copy to clipboard"
+      >
+        {copied ? (
+          <ClipboardCheck className="text-green-600 w-4 h-4" />
+        ) : (
+          <Clipboard className="w-4 h-4" />
+        )}
+      </button>
+    </div>
+  );
 };
 
 export default CopyButton;
