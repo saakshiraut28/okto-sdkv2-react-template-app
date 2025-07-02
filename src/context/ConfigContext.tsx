@@ -59,11 +59,8 @@ export function ConfigProvider({ children }: { children: React.ReactNode }) {
       apiUrl: defaultConfig.apiUrl,
       environment:
         import.meta.env.VITE_OKTO_ENVIRONMENT || defaultConfig.environment,
-      clientPrivateKey:
-        import.meta.env.VITE_OKTO_CLIENT_PRIVATE_KEY ||
-        defaultConfig.clientPrivateKey,
-      clientSWA:
-        import.meta.env.VITE_OKTO_CLIENT_SWA || defaultConfig.clientSWA,
+      clientPrivateKey: defaultConfig.clientPrivateKey,
+      clientSWA: defaultConfig.clientSWA,
     };
   });
   const [authMethod, setAuthMethod] = useState<authType>(() => {

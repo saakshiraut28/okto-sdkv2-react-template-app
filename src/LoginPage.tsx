@@ -18,7 +18,7 @@ export default function LoginPage() {
   const navigate = useNavigate();
 
   useEffect(()=>{
-    if(oktoClient.isLoggedIn()) navigate("/");
+    if(oktoClient.isLoggedIn()) navigate("/home");
     return;
   }, []);
 
