@@ -1,29 +1,51 @@
-import { useState } from "react";
+import { useState, useContext, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useOkto } from "@okto_web3/react-sdk";
+import { ConfigContext } from "../../context/ConfigContext";
+import * as authClient from "../../api/auth";
+import type { Hex } from "viem";
 
-export default () => {
+export default function JWTLogin() {
   const [jwt, setJwt] = useState("");
+  const [mode, setMode] = useState<string>("sdk");
+  const [clientPK, setClientPK] = useState<Hex>("0x");
+  const [clientSWA, setClientSWA] = useState<Hex>("0x");
+  const [baseUrl, setBaseUrl] = useState<string>("");
 
   const navigate = useNavigate();
   const oktoClient = useOkto();
+  const configContext = useContext(ConfigContext);
+
+  useEffect(() => {
+    setMode(configContext.config.mode);
+    setClientPK(configContext.config.clientPrivateKey);
+    setClientSWA(configContext.config.clientSWA);
+    setBaseUrl(configContext.config.apiUrl);
+  }, [configContext]);
 
   const handleJwtAction = async () => {
     try {
       localStorage.removeItem("okto_session");
       if (!jwt) return alert("Enter a valid Jwt token");
 
-      const res = await oktoClient.loginUsingJWTAuthentication(
-        jwt,
-        (session: any) => {
+      if (mode === "api") {
+        const provider = "jwt";
+        const res = await authClient.authenticate(
+          baseUrl,
+          jwt,
+          provider,
+          clientPK,
+          clientSWA
+        );
+        localStorage.setItem("okto_session", JSON.stringify(res.sessionConfig));
+      } else if (mode === "sdk") {
+        await oktoClient.loginUsingJWTAuthentication(jwt, (session: any) => {
           localStorage.setItem("okto_session", JSON.stringify(session));
-        }
-      );
-      console.log("JWT login response:", res);
-
+        });
+      }
       navigate("/home");
     } catch (err) {
-      console.error("Whatsapp login error:", err);
+      console.error("JWT login error:", err);
     }
   };
 

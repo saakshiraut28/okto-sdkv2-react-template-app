@@ -1,10 +1,27 @@
 import { GoogleLogin } from "@react-oauth/google";
 import { useOkto } from "@okto_web3/react-sdk";
 import { useNavigate } from "react-router-dom";
+import { useContext, useEffect, useState } from "react";
+import { ConfigContext } from "../../context/ConfigContext";
+import * as authClient from "../../api/auth";
+import type { Hex } from "viem";
 
-export default () => {
+export default function GoogleLoginComponent() {
   const oktoClient = useOkto();
   const navigate = useNavigate();
+  const configContext = useContext(ConfigContext);
+
+  const [mode, setMode] = useState<string>("sdk");
+  const [clientPK, setClientPK] = useState<Hex>("0x");
+  const [clientSWA, setClientSWA] = useState<Hex>("0x");
+  const [baseUrl, setBaseUrl] = useState<string>("");
+
+  useEffect(() => {
+    setMode(configContext.config.mode);
+    setClientPK(configContext.config.clientPrivateKey);
+    setClientSWA(configContext.config.clientSWA);
+    setBaseUrl(configContext.config.apiUrl);
+  }, [configContext]);
 
   const handleGoogleLogin = async (credentialResponse: any) => {
     const idToken = credentialResponse.credential || "";
@@ -12,12 +29,27 @@ export default () => {
       localStorage.setItem("googleIdToken", idToken);
       try {
         localStorage.removeItem("okto_session");
-        const user = await oktoClient.loginUsingOAuth(
-          { idToken, provider: "google" },
-          (session: any) => {
-            localStorage.setItem("okto_session", JSON.stringify(session));
-          }
-        );
+        if (mode === "api") {
+          const provider = "google";
+          const res = await authClient.authenticate(
+            baseUrl,
+            idToken,
+            provider,
+            clientPK,
+            clientSWA
+          );
+          localStorage.setItem(
+            "okto_session",
+            JSON.stringify(res.sessionConfig)
+          );
+        } else if (mode === "sdk") {
+          await oktoClient.loginUsingOAuth(
+            { idToken, provider: "google" },
+            (session: any) => {
+              localStorage.setItem("okto_session", JSON.stringify(session));
+            }
+          );
+        }
         navigate("/home");
       } catch (error) {
         console.error("Authentication failed:", error);

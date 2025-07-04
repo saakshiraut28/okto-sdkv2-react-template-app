@@ -1,6 +1,7 @@
 import { useOkto } from "@okto_web3/react-sdk";
-import React, { useState } from "react";
+import React, { useContext, useState, useEffect } from "react";
 import CopyButton from "./CopyButton";
+import { ConfigContext } from "../context/ConfigContext";
 
 interface GetButtonProps {
   title: string;
@@ -11,21 +12,34 @@ interface GetButtonProps {
 const GetButton: React.FC<GetButtonProps> = ({ title, apiFn, tag }) => {
   const [modalVisible, setModalVisible] = useState(false);
   const [resultData, setResultData] = useState("");
+  const [mode, setMode] = useState<string>("sdk");
+  const [baseUrl, setBaseUrl] = useState<string>("");
   const oktoClient = useOkto();
+  const { config } = useContext(ConfigContext);
 
-  const handleButtonClick = () => {
-    apiFn(oktoClient)
-      .then((result: any) => {
-        console.log(`${title}:`, result);
-        const resultData = JSON.stringify(result, null, 2);
-        setResultData(resultData !== "null" ? resultData : "No result"); // Pretty print the JSON
-        setModalVisible(true);
-      })
-      .catch((error: any) => {
-        console.error(`${title} error:`, error);
-        setResultData(`error: ${error}`); // Pretty print the JSON
-        setModalVisible(true);
-      });
+  useEffect(() => {
+    setMode(config.mode);
+    setBaseUrl(config.apiUrl);
+  }, [config]);
+
+  const handleButtonClick = async () => {
+    try {
+      let result;
+      if (mode === "api") {
+        const session = localStorage.getItem("okto_session");
+        const sessionConfig = JSON.parse(session || "{}");
+        result = await apiFn(baseUrl, sessionConfig);
+      } else if (mode === "sdk") {
+        result = await apiFn(oktoClient);
+      }
+      const resultDataStr = JSON.stringify(result, null, 2);
+      setResultData(resultDataStr !== "null" ? resultDataStr : "No result");
+      setModalVisible(true);
+    } catch (error: any) {
+      console.error(`${title} error:`, error);
+      setResultData(`error: ${error}`);
+      setModalVisible(true);
+    }
   };
 
   const handleClose = () => setModalVisible(false);

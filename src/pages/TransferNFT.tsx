@@ -734,7 +734,7 @@ function TransferNFT() {
 
           {/* Amount */}
           <div className="w-full mb-4">
-            <label className="flex justify-between block text-sm font-medium text-gray-300 mb-1">
+            <label className="justify-between block text-sm font-medium text-gray-300 mb-1">
               <span>Amount</span>
               <span className="mr-2">NFT Balance: {balance}</span>
             </label>

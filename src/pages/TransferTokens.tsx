@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useContext } from "react";
 import {
   Address,
   getOrdersHistory,
@@ -14,6 +14,9 @@ import { getChains } from "@okto_web3/react-sdk";
 import { useNavigate } from "react-router-dom";
 import CopyButton from "../components/CopyButton";
 import ViewExplorerURL from "../components/ViewExplorerURL";
+import { ConfigContext } from "../context/ConfigContext";
+import * as intent from "../api/intent";
+import * as explorer from "../api/explorer";
 
 // Types
 interface TokenOption {
@@ -66,6 +69,7 @@ const RefreshIcon = () => (
 function TwoStepTokenTransfer() {
   const oktoClient = useOkto();
   const navigate = useNavigate();
+  const { config } = useContext(ConfigContext);
 
   // Form state
   const [chains, setChains] = useState<any[]>([]);
@@ -138,18 +142,32 @@ function TwoStepTokenTransfer() {
     };
   };
 
+  // Helper to get sessionConfig for API mode
+  const getSessionConfig = () => {
+    const session = localStorage.getItem("okto_session");
+    return JSON.parse(session || "{}");
+  };
+
   // Data fetching
   useEffect(() => {
     const fetchChains = async () => {
       try {
-        setChains(await getChains(oktoClient));
+        let chainsData;
+        if (config.mode === "api") {
+          const sessionConfig = getSessionConfig();
+          const res = await explorer.getChains(config.apiUrl, sessionConfig);
+          chainsData = res.data.network;
+        } else {
+          chainsData = await getChains(oktoClient);
+        }
+        setChains(chainsData);
       } catch (error: any) {
         console.error("Error fetching chains:", error);
         setError(`Failed to fetch chains: ${error.message}`);
       }
     };
     fetchChains();
-  }, [oktoClient]);
+  }, [oktoClient, config]);
 
   useEffect(() => {
     const fetchTokens = async () => {
@@ -157,22 +175,28 @@ function TwoStepTokenTransfer() {
         setTokens([]);
         return;
       }
-
       setLoadingTokens(true);
       setError(null);
-
       try {
-        const response = await getTokens(oktoClient);
-        const filteredTokens = response
-          .filter((token: any) => token.caipId === selectedChain)
+        let tokensData;
+        if (config.mode === "api") {
+          const sessionConfig = getSessionConfig();
+          const res = await explorer.getTokens(config.apiUrl, sessionConfig);
+          tokensData = res.data.tokens;
+        } else {
+          tokensData = await getTokens(oktoClient);
+        }
+        const filteredTokens = tokensData
+          .filter(
+            (token: any) => (token.caipId || token.caip_id) === selectedChain
+          )
           .map((token: any) => ({
             address: token.address,
             symbol: token.symbol,
-            name: token.shortName || token.name,
+            name: token.short_name || token.shortName || token.name,
             decimals: token.decimals,
-            caipId: token.caipId,
+            caipId: token.caipId || token.caip_id,
           }));
-
         setTokens(filteredTokens);
       } catch (error: any) {
         console.error("Error fetching tokens:", error);
@@ -181,23 +205,28 @@ function TwoStepTokenTransfer() {
         setLoadingTokens(false);
       }
     };
-
     fetchTokens();
-  }, [selectedChain, oktoClient]);
+  }, [selectedChain, oktoClient, config]);
 
   useEffect(() => {
     const fetchPortfolio = async () => {
       try {
-        const data = await getPortfolio(oktoClient);
+        let data;
+        if (config.mode === "api") {
+          const sessionConfig = getSessionConfig();
+          const res = await explorer.getPortfolio(config.apiUrl, sessionConfig);
+          data = res.data;
+        } else {
+          data = await getPortfolio(oktoClient);
+        }
         setPortfolio(data);
-
         // Process portfolio data into a more usable format
         if (data?.groupTokens) {
           // Create a map of all tokens with their balances
           const tokenBalanceMap = new Map();
 
           // Process direct tokens in groupTokens
-          data.groupTokens.forEach((group) => {
+          data.groupTokens.forEach((group: any) => {
             // Some items in groupTokens are direct tokens
             if (group.aggregationType === "token") {
               tokenBalanceMap.set(group.symbol, {
@@ -209,7 +238,7 @@ function TwoStepTokenTransfer() {
 
             // Some items have nested tokens
             if (group.tokens && group.tokens.length > 0) {
-              group.tokens.forEach((token) => {
+              group.tokens.forEach((token: any) => {
                 tokenBalanceMap.set(token.symbol, {
                   balance: token.balance,
                   usdtBalance: token.holdingsPriceUsdt,
@@ -239,9 +268,8 @@ function TwoStepTokenTransfer() {
         setError(`Failed to fetch portfolio: ${error.message}`);
       }
     };
-
     fetchPortfolio();
-  }, [oktoClient, selectedToken]);
+  }, [oktoClient, selectedToken, config]);
 
   // handle network change
   const handleNetworkChange = (e: any) => {
@@ -251,9 +279,13 @@ function TwoStepTokenTransfer() {
     setTokenBalance(null);
 
     const selectedChainObj = chains.find(
-      (chain) => chain.caipId === selectedCaipId
+      (chain) => (chain.caipId || chain.caip_id) === selectedCaipId
     );
-    setSponsorshipEnabled(selectedChainObj?.sponsorshipEnabled || false);
+    setSponsorshipEnabled(
+      selectedChainObj?.sponsorshipEnabled ??
+        selectedChainObj?.sponsorship_enabled ??
+        false
+    );
   };
 
   // Function to handle token selection
@@ -272,15 +304,26 @@ function TwoStepTokenTransfer() {
       setError("No job ID available");
       return;
     }
-
     setIsLoading(true);
     setError(null);
-
     try {
-      const orders = await getOrdersHistory(oktoClient, {
-        intentId,
-        intentType: "TOKEN_TRANSFER",
-      });
+      let orders;
+      if (config.mode === "api") {
+        const sessionConfig = getSessionConfig();
+        const res = await explorer.getOrderHistory(
+          config.apiUrl,
+          sessionConfig
+        );
+        // Use items array and filter by intent_id
+        orders = (res.data?.items || []).filter(
+          (o: any) => (o.intent_id || o.intentId) === intentId
+        );
+      } else {
+        orders = await getOrdersHistory(oktoClient, {
+          intentId,
+          intentType: "TOKEN_TRANSFER",
+        });
+      }
       setOrderHistory(orders?.[0]);
       console.log("Refreshed Order History:", orders);
       setActiveModal("orderHistory");
@@ -297,13 +340,24 @@ function TwoStepTokenTransfer() {
       setError("No job ID available to refresh");
       return;
     }
-
     setIsRefreshing(true);
     try {
-      const orders = await getOrdersHistory(oktoClient, {
-        intentId: jobId,
-        intentType: "TOKEN_TRANSFER",
-      });
+      let orders;
+      if (config.mode === "api") {
+        const sessionConfig = getSessionConfig();
+        const res = await explorer.getOrderHistory(
+          config.apiUrl,
+          sessionConfig
+        );
+        orders = (res.data?.items || []).filter(
+          (o: any) => (o.intent_id || o.intentId) === jobId
+        );
+      } else {
+        orders = await getOrdersHistory(oktoClient, {
+          intentId: jobId,
+          intentType: "TOKEN_TRANSFER",
+        });
+      }
       setOrderHistory(orders?.[0]);
     } catch (error: any) {
       console.error("Error refreshing order history", error);
@@ -316,24 +370,40 @@ function TwoStepTokenTransfer() {
   const handleTransferToken = async () => {
     setIsLoading(true);
     setError(null);
-
     try {
       const transferParams = validateFormData();
-
-      if (selectedChain && sponsorshipEnabled) {
-        const jobId = await tokenTransferSdk(
-          oktoClient,
-          transferParams,
-          feePayer as Address
+      let jobId;
+      if (config.mode === "api") {
+        // API mode: use intent.ts endpoint
+        const session = localStorage.getItem("okto_session");
+        const sessionConfig = JSON.parse(session || "{}");
+        const res = await intent.tokenTransfer(
+          config.apiUrl,
+          transferParams.caip2Id,
+          transferParams.recipient,
+          transferParams.token,
+          transferParams.amount.toString(),
+          sessionConfig,
+          config.clientSWA,
+          config.clientPrivateKey,
+          sponsorshipEnabled ? feePayer : undefined
         );
+        jobId = res.data?.jobId;
       } else {
-        const jobId = await tokenTransferSdk(oktoClient, transferParams);
+        // SDK mode: use SDK
+        if (selectedChain && sponsorshipEnabled) {
+          jobId = await tokenTransferSdk(
+            oktoClient,
+            transferParams,
+            feePayer as Address
+          );
+        } else {
+          jobId = await tokenTransferSdk(oktoClient, transferParams);
+        }
       }
-
       setJobId(jobId);
       await handleGetOrderHistory(jobId ? jobId : undefined);
       showModal("jobId");
-
       console.log("Transfer jobId:", jobId);
     } catch (error: any) {
       console.error("Error in token transfer:", error);
@@ -432,11 +502,17 @@ function TwoStepTokenTransfer() {
           <option value="" disabled>
             Select a network
           </option>
-          {chains.map((chain) => (
-            <option key={chain.chainId} value={chain.caipId}>
-              {chain.networkName} ({chain.caipId})
-            </option>
-          ))}
+          {chains &&
+            Array.isArray(chains) &&
+            chains.map((chain) => (
+              <option
+                key={chain.chainId || chain.chain_id}
+                value={chain.caipId || chain.caip_id}
+              >
+                {chain.networkName || chain.network_name} (
+                {chain.caipId || chain.caip_id})
+              </option>
+            ))}
         </select>
       </div>
       {selectedChain && (
@@ -570,19 +646,21 @@ function TwoStepTokenTransfer() {
         >
           {isLoading ? "Processing..." : "Transfer Token (Direct)"}
         </button>
-        <button
-          className="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors disabled:bg-purple-800 disabled:opacity-50"
-          onClick={handleTokenTransferUserOp}
-          disabled={
-            isLoading ||
-            !selectedChain ||
-            !selectedToken ||
-            !amount ||
-            !recipient
-          }
-        >
-          {isLoading ? "Processing..." : "Create Token Transfer UserOp"}
-        </button>
+        {config.mode === "sdk" ? (
+          <button
+            className="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors disabled:bg-purple-800 disabled:opacity-50"
+            onClick={handleTokenTransferUserOp}
+            disabled={
+              isLoading ||
+              !selectedChain ||
+              !selectedToken ||
+              !amount ||
+              !recipient
+            }
+          >
+            {isLoading ? "Processing..." : "Create Token Transfer UserOp"}
+          </button>
+        ) : null}
       </div>
     </div>
   );
@@ -706,7 +784,7 @@ function TwoStepTokenTransfer() {
             <div className="bg-gray-700 p-4 rounded-md">
               <p>
                 <span className="font-semibold">Intent ID:</span>{" "}
-                {orderHistory.intentId}
+                {orderHistory.intentId || orderHistory.intent_id}
               </p>
               <p>
                 <span className="font-semibold">Status:</span>{" "}
@@ -717,9 +795,17 @@ function TwoStepTokenTransfer() {
               </p>
               <pre className="break-all whitespace-pre-wrap overflow-auto bg-gray-800 p-2 rounded-md text-sm max-w-full">
                 <CopyButton
-                  text={orderHistory.downstreamTransactionHash[0] ?? ""}
+                  text={
+                    (orderHistory.downstreamTransactionHash ||
+                      orderHistory.downstream_transaction_hash ||
+                      [])[0] ?? ""
+                  }
                 />
-                {orderHistory.downstreamTransactionHash[0]}
+                {
+                  (orderHistory.downstreamTransactionHash ||
+                    orderHistory.downstream_transaction_hash ||
+                    [])[0]
+                }
               </pre>
             </div>
           ) : (

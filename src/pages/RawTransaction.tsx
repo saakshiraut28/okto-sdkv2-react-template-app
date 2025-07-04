@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import {
   useOkto,
   evmRawTransaction,
@@ -13,6 +13,9 @@ import { evmRawTransaction as evmRawTransactionUserop } from "@okto_web3/react-s
 import { useNavigate } from "react-router-dom";
 import CopyButton from "../components/CopyButton";
 import ViewExplorerURL from "../components/ViewExplorerURL";
+import { ConfigContext } from "../context/ConfigContext";
+import * as explorer from "../api/explorer";
+import * as intent from "../api/intent";
 
 interface ModalProps {
   isOpen: boolean;
@@ -56,6 +59,7 @@ const RefreshIcon = () => (
 function EVMRawTransaction() {
   const oktoClient = useOkto();
   const navigate = useNavigate();
+  const { config } = useContext(ConfigContext);
 
   const [mode, setMode] = useState<"EVM" | "APTOS">("EVM");
   const [chains, setChains] = useState<any[]>([]);
@@ -109,14 +113,33 @@ function EVMRawTransaction() {
     return handleAptosRawTransaction();
   };
 
+  // Helper to get sessionConfig for API mode
+  const getSessionConfig = () => {
+    const session = localStorage.getItem("okto_session");
+    return JSON.parse(session || "{}");
+  };
+
   // Data fetching
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [fetchedChains, fetchedAccounts] = await Promise.all([
-          getChains(oktoClient),
-          getAccount(oktoClient),
-        ]);
+        let fetchedChains, fetchedAccounts;
+        if (config.mode === "api") {
+          const sessionConfig = getSessionConfig();
+          const resChains = await explorer.getChains(
+            config.apiUrl,
+            sessionConfig
+          );
+          fetchedChains = resChains.data.network;
+          const resAccounts = await explorer.getAccount(
+            config.apiUrl,
+            sessionConfig
+          );
+          fetchedAccounts = resAccounts.data;
+        } else {
+          fetchedChains = await getChains(oktoClient);
+          fetchedAccounts = await getAccount(oktoClient);
+        }
         setChains(fetchedChains);
         setAccounts(fetchedAccounts);
       } catch (error: any) {
@@ -124,9 +147,8 @@ function EVMRawTransaction() {
         setError(`Failed to fetch data: ${error.message}`);
       }
     };
-
     fetchData();
-  }, [oktoClient]);
+  }, [oktoClient, config]);
 
   useEffect(() => {
     if (!selectedChain) {
@@ -144,11 +166,14 @@ function EVMRawTransaction() {
   const handleNetworkChange = (e: any) => {
     const selectedCaipId = e.target.value;
     setSelectedChain(selectedCaipId);
-
     const selectedChainObj = chains.find(
-      (chain) => chain.caipId === selectedCaipId
+      (chain) => (chain.caipId || chain.caip_id) === selectedCaipId
     );
-    setSponsorshipEnabled(selectedChainObj?.sponsorshipEnabled || false);
+    setSponsorshipEnabled(
+      selectedChainObj?.sponsorshipEnabled ??
+        selectedChainObj?.sponsorship_enabled ??
+        false
+    );
   };
 
   // Transaction handlers
@@ -158,15 +183,25 @@ function EVMRawTransaction() {
       setError("No job ID available");
       return;
     }
-
     setIsLoading(true);
     setError(null);
-
     try {
-      const orders = await getOrdersHistory(oktoClient, {
-        intentId,
-        intentType: "RAW_TRANSACTION",
-      });
+      let orders;
+      if (config.mode === "api") {
+        const sessionConfig = getSessionConfig();
+        const res = await explorer.getOrderHistory(
+          config.apiUrl,
+          sessionConfig
+        );
+        orders = (res.data?.items || []).filter(
+          (o: any) => (o.intent_id || o.intentId) === intentId
+        );
+      } else {
+        orders = await getOrdersHistory(oktoClient, {
+          intentId,
+          intentType: "RAW_TRANSACTION",
+        });
+      }
       setOrderHistory(orders?.[0]);
       console.log("Refreshed Order History:", orders);
       setActiveModal("orderHistory");
@@ -183,14 +218,24 @@ function EVMRawTransaction() {
       setError("No job ID available to refresh");
       return;
     }
-
     setIsRefreshing(true);
     try {
-      const orders = await getOrdersHistory(oktoClient, {
-        intentId: jobId,
-        intentType: "RAW_TRANSACTION",
-      });
-      console.log("Order ", orders?.[0]);
+      let orders;
+      if (config.mode === "api") {
+        const sessionConfig = getSessionConfig();
+        const res = await explorer.getOrderHistory(
+          config.apiUrl,
+          sessionConfig
+        );
+        orders = (res.data?.items || []).filter(
+          (o: any) => (o.intent_id || o.intentId) === jobId
+        );
+      } else {
+        orders = await getOrdersHistory(oktoClient, {
+          intentId: jobId,
+          intentType: "RAW_TRANSACTION",
+        });
+      }
       setOrderHistory(orders?.[0]);
     } catch (error: any) {
       console.error("Error refreshing order history", error);
@@ -282,36 +327,63 @@ function EVMRawTransaction() {
   const handleEVMRawTransaction = async () => {
     setIsLoading(true);
     setError(null);
-
     try {
-      const rawTransactionIntentParams = {
-        caip2Id: selectedChain,
-        transaction: {
-          from: from as Address,
-          to: to as Address,
-          value: BigInt(value),
-          data: (data ? data : undefined) as any,
-        },
-      };
-      console.log(
-        "Executing EVM Raw Transaction with params:",
-        rawTransactionIntentParams
-      );
       let jobId;
-      if (selectedChain && sponsorshipEnabled) {
-        jobId = await evmRawTransaction(
-          oktoClient,
-          rawTransactionIntentParams,
-          feePayer as Address
+      if (config.mode === "api") {
+        const rawTransactionIntentParams = {
+          caip2Id: selectedChain,
+          transaction: {
+            from: from as Address,
+            to: to as Address,
+            value: value.toString(), // string for API
+            data: (data ? data : undefined) as any,
+          },
+        };
+        const sessionConfig = getSessionConfig();
+        const res = await intent.rawTransaction(
+          config.apiUrl,
+          rawTransactionIntentParams.caip2Id,
+          rawTransactionIntentParams.transaction,
+          sessionConfig,
+          config.clientSWA,
+          config.clientPrivateKey,
+          sponsorshipEnabled ? feePayer : undefined
         );
+        if (res && res.data && res.data.jobId) {
+          jobId = res.data.jobId;
+        } else {
+          setError("No jobId returned from API");
+          setIsLoading(false);
+          return;
+        }
       } else {
-        jobId = await evmRawTransaction(oktoClient, rawTransactionIntentParams);
+        // SDK mode: use BigInt for value
+        const sdkParams = {
+          caip2Id: selectedChain,
+          transaction: {
+            from: from as Address,
+            to: to as Address,
+            value: BigInt(value),
+            data: (data ? data : undefined) as any,
+          },
+        };
+        if (selectedChain && sponsorshipEnabled) {
+          jobId = await evmRawTransaction(
+            oktoClient,
+            sdkParams,
+            feePayer as Address
+          );
+        } else {
+          jobId = await evmRawTransaction(oktoClient, sdkParams);
+        }
       }
       setJobId(jobId);
+      await handleGetOrderHistory(jobId ? jobId : undefined);
       showModal("jobId");
       console.log(jobId);
     } catch (error: any) {
       console.error("Error executing EVM Raw Transaction:", error);
+      setError(error.message || "Error executing EVM Raw Transaction");
     } finally {
       setIsLoading(false);
     }
@@ -323,42 +395,89 @@ function EVMRawTransaction() {
     setJobId(null);
 
     try {
-      const payload = {
-        caip2Id: selectedChain,
-        transactions: [
-          {
-            function: moveFunction,
-            typeArguments: typeArguments
-              .split(",")
-              .map((arg) => arg.trim())
-              .filter(Boolean),
-            functionArguments: (() => {
-              try {
-                const input = `[${functionArguments}]`;
-                return JSON.parse(input, (_, value) => {
-                  if (typeof value === "string") {
-                    const trimmed = value.trim();
-                    if (/^0x[a-fA-F0-9]+$/.test(trimmed)) return trimmed;
-                    if (/^\d+$/.test(trimmed)) return Number(trimmed);
-                    return trimmed;
-                  }
-                  return value;
-                });
-              } catch (e) {
-                console.error("Invalid function arguments:", e);
-                return [];
-              }
-            })(),
-          },
-        ],
-      };
-
-      console.log("Executing Aptos Raw Transaction with params:", payload);
-
-      const jobId = await aptosRawTransaction(oktoClient, payload);
-      setJobId(jobId);
-      showModal("jobId"); // optional modal trigger
-      console.log("Job ID:", jobId);
+      if (config.mode === "api") {
+        const payload = {
+          caip2Id: selectedChain,
+          transactions: [
+            {
+              function: moveFunction,
+              typeArguments: typeArguments
+                .split(",")
+                .map((arg) => arg.trim())
+                .filter(Boolean),
+              functionArguments: (() => {
+                try {
+                  const input = `[${functionArguments}]`;
+                  return JSON.parse(input, (_, value) => {
+                    if (typeof value === "string") {
+                      const trimmed = value.trim();
+                      if (/^0x[a-fA-F0-9]+$/.test(trimmed)) return trimmed;
+                      if (/^\d+$/.test(trimmed)) return Number(trimmed);
+                      return trimmed;
+                    }
+                    return value;
+                  });
+                } catch (e) {
+                  console.error("Invalid function arguments:", e);
+                  return [];
+                }
+              })(),
+            },
+          ],
+        };
+        const sessionConfig = getSessionConfig();
+        const res = await intent.rawTransaction(
+          config.apiUrl,
+          payload.caip2Id,
+          payload.transactions,
+          sessionConfig,
+          config.clientSWA,
+          config.clientPrivateKey
+        );
+        if (res && res.data && res.data.jobId) {
+          setJobId(res.data.jobId);
+          await handleGetOrderHistory(res.data.jobId);
+          showModal("jobId");
+          console.log("Job ID:", res.data.jobId);
+        } else {
+          setError("No jobId returned from API");
+        }
+      } else {
+        const payload = {
+          caip2Id: selectedChain,
+          transactions: [
+            {
+              function: moveFunction,
+              typeArguments: typeArguments
+                .split(",")
+                .map((arg) => arg.trim())
+                .filter(Boolean),
+              functionArguments: (() => {
+                try {
+                  const input = `[${functionArguments}]`;
+                  return JSON.parse(input, (_, value) => {
+                    if (typeof value === "string") {
+                      const trimmed = value.trim();
+                      if (/^0x[a-fA-F0-9]+$/.test(trimmed)) return trimmed;
+                      if (/^\d+$/.test(trimmed)) return Number(trimmed);
+                      return trimmed;
+                    }
+                    return value;
+                  });
+                } catch (e) {
+                  console.error("Invalid function arguments:", e);
+                  return [];
+                }
+              })(),
+            },
+          ],
+        };
+        const jobId = await aptosRawTransaction(oktoClient, payload);
+        setJobId(jobId);
+        await handleGetOrderHistory(jobId);
+        showModal("jobId");
+        console.log("Job ID:", jobId);
+      }
     } catch (error: any) {
       console.error("Error executing Aptos Raw Transaction:", error);
       setError(error.message || "Transaction failed");
@@ -468,7 +587,7 @@ function EVMRawTransaction() {
             <div className="bg-gray-700 p-4 rounded-md">
               <p>
                 <span className="font-semibold">Intent ID:</span>{" "}
-                {orderHistory.intentId}
+                {orderHistory.intentId || orderHistory.intent_id}
               </p>
               <p>
                 <span className="font-semibold">Status:</span>{" "}
@@ -479,9 +598,17 @@ function EVMRawTransaction() {
               </p>
               <pre className="break-all whitespace-pre-wrap overflow-auto bg-gray-800 p-2 rounded-md text-sm max-w-full">
                 <CopyButton
-                  text={orderHistory.downstreamTransactionHash[0] ?? ""}
+                  text={
+                    (orderHistory.downstreamTransactionHash ||
+                      orderHistory.downstream_transaction_hash ||
+                      [])[0] ?? ""
+                  }
                 />
-                {orderHistory.downstreamTransactionHash[0]}
+                {
+                  (orderHistory.downstreamTransactionHash ||
+                    orderHistory.downstream_transaction_hash ||
+                    [])[0]
+                }
               </pre>
             </div>
           ) : (
@@ -543,7 +670,7 @@ function EVMRawTransaction() {
         Home
       </button>
       <h1 className="text-white font-bold text-3xl mb-8">
-        EVM Raw Transaction
+        Raw Transaction
       </h1>
       <p className="text-white font-regular text-lg mb-6">
         For a detailed overview of Raw Transaction intent, refer to our
@@ -591,8 +718,12 @@ function EVMRawTransaction() {
                   Select a network
                 </option>
                 {chains.map((chain) => (
-                  <option key={chain.chainId} value={chain.caipId}>
-                    {chain.networkName} ({chain.caipId})
+                  <option
+                    key={chain.chainId || chain.chain_id}
+                    value={chain.caipId || chain.caip_id}
+                  >
+                    {chain.networkName || chain.network_name} (
+                    {chain.caipId || chain.caip_id})
                   </option>
                 ))}
               </select>
@@ -684,13 +815,17 @@ function EVMRawTransaction() {
               >
                 {isLoading ? "Processing..." : "Raw Transaction (Direct)"}
               </button>
-              <button
-                className="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors disabled:bg-purple-800 disabled:opacity-50"
-                onClick={handleCreateUserOp}
-                disabled={isLoading || !selectedChain || !from || !to || !value}
-              >
-                {isLoading ? "Processing..." : "Raw Transaction UserOp"}
-              </button>
+              {config.mode == "sdk" ? (
+                <button
+                  className="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors disabled:bg-purple-800 disabled:opacity-50"
+                  onClick={handleCreateUserOp}
+                  disabled={
+                    isLoading || !selectedChain || !from || !to || !value
+                  }
+                >
+                  {isLoading ? "Processing..." : "Raw Transaction UserOp"}
+                </button>
+              ) : null}
             </div>
           </div>
         ) : (
@@ -710,8 +845,12 @@ function EVMRawTransaction() {
                   Select a network
                 </option>
                 {chains.map((chain) => (
-                  <option key={chain.chainId} value={chain.caipId}>
-                    {chain.networkName} ({chain.caipId})
+                  <option
+                    key={chain.chainId || chain.chain_id}
+                    value={chain.caipId || chain.caip_id}
+                  >
+                    {chain.networkName || chain.network_name} (
+                    {chain.caipId || chain.caip_id})
                   </option>
                 ))}
               </select>
