@@ -13,16 +13,32 @@ import { useNavigate } from "react-router-dom";
 import GetButton from "./components/GetButton";
 import SignComponent from "./components/SignComponent";
 import SessionInfoModal from "./components/SessionInfoModal";
-import { useContext } from "react";
+import { useContext, useEffect, useState } from "react";
 import { ConfigContext } from "./context/ConfigContext";
+import * as explorerApi from "./api/explorer";
+import * as authApi from "./api/auth";
 
 export default function Homepage() {
   const oktoClient = useOkto();
   const navigate = useNavigate();
-  const isloggedIn = oktoClient.isLoggedIn();
-  const userSWA = oktoClient.userSWA;
-  const clientSWA = oktoClient.clientSWA;
   const { config } = useContext(ConfigContext);
+  const [isloggedIn, setIsLoggedIn] = useState(false);
+  const [userSWA, setUserSWA] = useState("");
+  const [clientSWA, setClientSWA] = useState("");
+
+  useEffect(() => {
+    const session = localStorage.getItem("okto_session");
+    const sessionInfo = JSON.parse(session || "{}");
+    if (config.mode === "api") {
+      setIsLoggedIn(true);
+      setUserSWA(sessionInfo.userSWA);
+      setClientSWA(config.clientSWA);
+    } else if (config.mode === "sdk") {
+      setIsLoggedIn(oktoClient.isLoggedIn());
+      setUserSWA(sessionInfo.userSWA);
+      setClientSWA(config.clientSWA);
+    }
+  }, []);
 
   // handles user logout process
   async function handleLogout() {
@@ -44,7 +60,8 @@ export default function Homepage() {
     if (config.mode === "api") {
       const session = localStorage.getItem("okto_session");
       const sessionInfo = JSON.parse(session || "{}");
-      return { sessionInfo: sessionInfo };
+      const oktoAuthToken = await authApi.getAuthorizationToken(session);
+      return { sessionInfo: sessionInfo, oktoAuthToken: oktoAuthToken };
     } else {
       const session = localStorage.getItem("okto_session");
       const sessionInfo = JSON.parse(session || "{}");
@@ -52,6 +69,11 @@ export default function Homepage() {
       return { sessionInfo: sessionInfo, oktoAuthToken: oktoAuthToken };
     }
   }
+
+  // Helper to select correct API function based on mode
+  const getApiFn = (apiFn: any, sdkFn: any) => {
+    return config.mode === "api" ? apiFn : sdkFn;
+  };
 
   return (
     <main className="min-h-screen bg-gradient-to-b from-violet-100 to-violet-200 py-12 px-4 sm:px-6 lg:px-8">
@@ -105,35 +127,42 @@ export default function Homepage() {
             .
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            <GetButton title="getAccount" apiFn={getAccount} tag="" />
+            <GetButton
+              title="getAccount"
+              apiFn={getApiFn(explorerApi.getAccount, getAccount)}
+              tag=""
+            />
             <GetButton
               title="getChains"
-              apiFn={getChains}
+              apiFn={getApiFn(explorerApi.getChains, getChains)}
               tag="Ensure that chains are whitelisted."
             />
             <GetButton
               title="getOrdersHistory"
-              apiFn={getOrdersHistory}
+              apiFn={getApiFn(explorerApi.getOrderHistory, getOrdersHistory)}
               tag=""
             />
             <GetButton
               title="getPortfolio"
-              apiFn={getPortfolio}
+              apiFn={getApiFn(explorerApi.getPortfolio, getPortfolio)}
               tag="Ensure token is whitelisted to see the balance."
             />
             <GetButton
               title="getPortfolioActivity"
-              apiFn={getPortfolioActivity}
+              apiFn={getApiFn(
+                explorerApi.getPortfolioActivity,
+                getPortfolioActivity
+              )}
               tag=""
             />
             <GetButton
               title="getPortfolioNFT"
-              apiFn={getPortfolioNFT}
+              apiFn={getApiFn(explorerApi.getPortfolioNFT, getPortfolioNFT)}
               tag="Ensure that the NFT is whitelisted"
             />
             <GetButton
               title="getTokens"
-              apiFn={getTokens}
+              apiFn={getApiFn(explorerApi.getTokens, getTokens)}
               tag="Ensure the token is whitelisted"
             />
             <button

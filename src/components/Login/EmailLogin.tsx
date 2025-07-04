@@ -7,7 +7,7 @@ import type { Hex } from "viem";
 
 type Mode = "api" | "sdk";
 
-export default () => {
+export default function EmailLogin() {
   const [email, setEmail] = useState<string>("");
   const [otp, setOtp] = useState<string>("");
   const [status, setStatus] = useState<string>("send_OTP");
@@ -160,4 +160,4 @@ export default () => {
       </p>
     </div>
   );
-};
+}

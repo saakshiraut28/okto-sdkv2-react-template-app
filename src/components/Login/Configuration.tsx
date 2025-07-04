@@ -19,7 +19,7 @@ interface ConfigContextType {
   setConfig: React.Dispatch<React.SetStateAction<Config>>;
 }
 
-export default () => {
+export default function Configuration() {
   const { config, setConfig } = useContext(ConfigContext);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
@@ -192,4 +192,4 @@ export default () => {
       )}
     </>
   );
-};
+}
