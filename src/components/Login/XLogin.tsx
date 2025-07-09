@@ -40,7 +40,7 @@ export default function XLogin() {
 
     const params = new URLSearchParams({
       response_type: "code",
-      client_id: "amUyR0Q5ODVuOVJwSXRvSDV5aXY6MTpjaQ",
+      client_id: "STFrTFRTcDlmSXNGZ05VRmJwUFE6MTpjaQ",
       redirect_uri: REDIRECT_URI!,
       scope: SCOPES.join(" "),
       state: "state_" + Math.random().toString(36).substring(2),
