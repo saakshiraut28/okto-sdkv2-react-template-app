@@ -1,9 +1,16 @@
 import React, { createContext, useState, useEffect } from "react";
 import { Hash, Hex } from "@okto_web3/react-sdk";
-import { STORAGE_KEY } from "../constants";
+import { STORAGE_KEY, API_URL } from "../constants";
 
 type Env = "staging" | "sandbox" | "production";
-type authType = "google" | "email" | "whatsapp" | "jwt" | "webview";
+type authType =
+  | "google"
+  | "email"
+  | "whatsapp"
+  | "jwt"
+  | "webview"
+  | "apple"
+  | "x";
 type Mode = "api" | "sdk";
 
 interface Config {
@@ -23,7 +30,7 @@ interface ConfigContextType {
 
 const defaultConfig: Config = {
   mode: "sdk",
-  apiUrl: "",
+  apiUrl: API_URL,
   environment: "sandbox",
   clientPrivateKey:
     "0x7a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b" as Hash, // sample address

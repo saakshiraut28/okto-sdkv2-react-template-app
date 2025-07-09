@@ -77,7 +77,9 @@ export default function EmailLogin() {
         clientSWA
       );
       console.log("sessionConfig:", res.sessionConfig);
-      localStorage.setItem("okto_session", JSON.stringify(res.sessionConfig));
+      if(res.status == "success"){
+        localStorage.setItem("okto_session", JSON.stringify(res.sessionConfig));
+      }
     } else if (mode === "sdk") {
       res = await oktoClient.loginUsingEmail(
         email,

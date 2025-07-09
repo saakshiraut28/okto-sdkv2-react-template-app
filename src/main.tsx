@@ -21,13 +21,11 @@ function AppWithProviders() {
 }
 
 createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <BrowserRouter>
-      <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
-        <ConfigProvider>
-          <AppWithProviders />
-        </ConfigProvider>
-      </GoogleOAuthProvider>
-    </BrowserRouter>
-  </StrictMode>
+  <BrowserRouter>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <ConfigProvider>
+        <AppWithProviders />
+      </ConfigProvider>
+    </GoogleOAuthProvider>
+  </BrowserRouter>
 );

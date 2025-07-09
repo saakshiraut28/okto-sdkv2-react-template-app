@@ -2,14 +2,14 @@ import { ConfigContext } from "./context/ConfigContext";
 import { useContext, useEffect } from "react";
 import Configuration from "./components/Login/Configuration";
 import EmailLogin from "./components/Login/EmailLogin";
+import AppleLogin from "./components/Login/AppleLogin";
+import XLogin from "./components/Login/XLogin";
 import GoogleLogin from "./components/Login/GoogleLogin";
 import WhatsappLogin from "./components/Login/WhatsappLogin";
 import JWTLogin from "./components/Login/JWTLogin";
 import WebViewLogin from "./components/Login/WebViewLogin";
 import { useOkto } from "@okto_web3/react-sdk";
 import { useNavigate } from "react-router-dom";
-
-type TabType = "google" | "email" | "whatsapp" | "jwt" | "webview";
 
 export default function LoginPage() {
   const { authMethod, setAuthMethod } = useContext(ConfigContext);
@@ -41,6 +41,30 @@ export default function LoginPage() {
             }`}
           >
             Google
+          </button>
+          <button
+            onClick={() => {
+              setAuthMethod("apple");
+            }}
+            className={`flex-1 py-2 px-4 text-center ${
+              authMethod === "apple"
+                ? "text-blue-500 border-b-2 border-blue-500"
+                : "text-gray-400 hover:text-gray-300"
+            }`}
+          >
+            Apple
+          </button>
+          <button
+            onClick={() => {
+              setAuthMethod("x");
+            }}
+            className={`flex-1 py-2 px-4 text-center ${
+              authMethod === "x"
+                ? "text-blue-500 border-b-2 border-blue-500"
+                : "text-gray-400 hover:text-gray-300"
+            }`}
+          >
+            X
           </button>
           <button
             onClick={() => {
@@ -103,6 +127,12 @@ export default function LoginPage() {
         <div className="space-y-6">
           {/* Google Login */}
           {authMethod === "google" && <GoogleLogin />}
+
+          {/* Apple Login */}
+          {authMethod === "apple" && <AppleLogin />}
+
+          {/* x Login */}
+          {authMethod === "x" && <XLogin />}
 
           {/* Email Login */}
           {authMethod === "email" && <EmailLogin />}

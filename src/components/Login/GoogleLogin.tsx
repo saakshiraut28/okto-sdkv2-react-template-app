@@ -38,10 +38,9 @@ export default function GoogleLoginComponent() {
             clientPK,
             clientSWA
           );
-          localStorage.setItem(
-            "okto_session",
-            JSON.stringify(res.sessionConfig)
-          );
+          if(res.status == "success"){
+            localStorage.setItem("okto_session", JSON.stringify(res.sessionConfig));
+          }
         } else if (mode === "sdk") {
           await oktoClient.loginUsingOAuth(
             { idToken, provider: "google" },
