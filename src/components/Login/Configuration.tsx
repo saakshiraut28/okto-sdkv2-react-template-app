@@ -1,7 +1,7 @@
 import { Hash, Hex } from "@okto_web3/react-sdk";
 import { ConfigContext } from "../../context/ConfigContext";
 import { useContext, useState } from "react";
-import { STORAGE_KEY } from "../../constants";
+import { STORAGE_KEY, API_URL } from "../../constants";
 
 type Env = "staging" | "sandbox" | "production";
 type Mode = "api" | "sdk";
@@ -22,13 +22,15 @@ interface ConfigContextType {
 export default function Configuration() {
   const { config, setConfig } = useContext(ConfigContext);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
+  const [selectedMode, setSelectedMode] = useState<Mode>(config.mode);
 
   const handleConfigUpdate = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.target as HTMLFormElement);
+    const mode = (formData.get("mode") as Mode) || "sdk";
     setConfig({
-      mode: (formData.get("mode") as Mode) || "sdk",
-      apiUrl: (formData.get("apiUrl") as string) || "",
+      mode: mode,
+      apiUrl: API_URL,
       environment: (formData.get("environment") as Env) || "sandbox",
       clientPrivateKey:
         (formData.get("clientPrivateKey") as `0x${string}`) || "",
@@ -40,7 +42,7 @@ export default function Configuration() {
   const handleResetConfig = () => {
     const defaultConfig = {
       mode: "sdk" as Mode,
-      apiUrl: "",
+      apiUrl: API_URL,
       environment: import.meta.env.VITE_OKTO_ENVIRONMENT || "sandbox",
       clientPrivateKey: import.meta.env.VITE_OKTO_CLIENT_PRIVATE_KEY || "",
       clientSWA: import.meta.env.VITE_OKTO_CLIENT_SWA || "",
@@ -72,12 +74,6 @@ export default function Configuration() {
             <p className="flex items-center">
               <span>Mode:</span>
               <span className="text-white ml-2">{config.mode}</span>
-            </p>
-          </div>
-          <div className="text-sm text-gray-400">
-            <p className="flex items-center">
-              <span>API URL:</span>
-              <span className="text-white ml-2">{config.apiUrl}</span>
             </p>
           </div>
           <div className="text-sm text-gray-400">
@@ -114,24 +110,28 @@ export default function Configuration() {
               </label>
               <select
                 name="mode"
-                defaultValue={config.mode}
+                value={selectedMode}
+                onChange={(e) => setSelectedMode(e.target.value as Mode)}
                 className="w-full p-2 text-sm border border-gray-700 rounded-lg bg-gray-800 text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
               >
                 <option value="sdk">SDK</option>
                 <option value="api">API</option>
               </select>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-400 mb-1">
-                API URL
-              </label>
-              <input
-                type="text"
-                name="apiUrl"
-                placeholder="Enter your API URL"
-                className="w-full p-2 text-sm border border-gray-700 rounded-lg bg-gray-800 text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
-              />
-            </div>
+            {/* Only show API URL data box when mode is 'api' */}
+            {selectedMode === "api" && (
+              <div>
+                <label className="block text-xs font-medium text-gray-400 mb-1">
+                  API URL
+                </label>
+                <div
+                  className="w-full p-2 text-sm border border-gray-700 rounded-lg bg-gray-900 text-violet-300 select-all cursor-pointer"
+                  title="API URL"
+                >
+                  {API_URL}
+                </div>
+              </div>
+            )}
             <div>
               <label className="block text-xs font-medium text-gray-400 mb-1">
                 Environment
@@ -142,7 +142,6 @@ export default function Configuration() {
                 className="w-full p-2 text-sm border border-gray-700 rounded-lg bg-gray-800 text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
               >
                 <option value="sandbox">Sandbox</option>
-                <option value="staging">Staging</option>
                 <option value="production">Production</option>
               </select>
             </div>
@@ -167,7 +166,8 @@ export default function Configuration() {
               <input
                 type="text"
                 name="clientSWA"
-                defaultValue={config.clientSWA}
+                required
+                placeholder="Enter you client SWA"
                 className="w-full p-2 text-sm border border-gray-700 rounded-lg bg-gray-800 text-white focus:outline-none focus:ring-1 focus:ring-violet-500"
               />
             </div>

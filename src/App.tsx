@@ -7,6 +7,8 @@ import RawTransaction from "./pages/RawTransaction";
 import TransferNFT from "./pages/TransferNFT";
 import TransferTokens from "./pages/TransferTokens";
 import RawRead from "./pages/RawRead";
+import { XAuthCallback } from "./components/Login/XLogin";
+import { AppleAuthCallback } from "./components/Login/AppleLogin";
 
 function App() {
   return (
@@ -20,6 +22,8 @@ function App() {
         <Route path="/transfernft" element={<TransferNFT />} />
         <Route path="/createnftcollection" element={<CreateNft />} />
         <Route path="/rawtransaction" element={<RawTransaction />} />
+        <Route path="/auth/callback/twitter" element={<XAuthCallback />} />
+        <Route path="/auth/callback/apple" element={<AppleAuthCallback />} />
       </Routes>
     </>
   );

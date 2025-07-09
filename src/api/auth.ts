@@ -114,28 +114,28 @@ export const authenticate = async (
     "Content-Type": "application/json",
   };
   const response: any = await post(url, headers, data);
-  return response.data;
+  return response;
 };
 
 export const getAuthorizationToken = async (sessionConfig: any) => {
   const sessionPriv = sessionConfig?.sessionPrivKey;
   const sessionPub = sessionConfig?.sessionPubKey;
   if (sessionPriv === void 0 || sessionPub === void 0) {
-      throw new Error("Session keys are not set");
+    throw new Error("Session keys are not set");
   }
   const data = {
-      expire_at: Math.round(Date.now() / 1e3) + 60 * 90,
-      session_pub_key: sessionPub,
+    expire_at: Math.round(Date.now() / 1e3) + 60 * 90,
+    session_pub_key: sessionPub,
   };
 
   // Okto auth token is nothing but the session public key encrypted with the session private key
   const payload = {
-      type: "ecdsa_uncompressed",
-      data,
-      data_signature: await signMessage({
-          message: JSON.stringify(data),
-          privateKey: sessionPriv,
-      }),
+    type: "ecdsa_uncompressed",
+    data,
+    data_signature: await signMessage({
+      message: JSON.stringify(data),
+      privateKey: sessionPriv,
+    }),
   };
   return btoa(JSON.stringify(payload));
-} 
+};
