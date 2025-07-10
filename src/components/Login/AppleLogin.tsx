@@ -16,9 +16,9 @@ function getAppleOauthUrl() {
     response_type: "code",
     client_id: "tech.okto.si",
     redirect_uri: REDIRECT_URI,
-    scope: "name email",
+    scope: "",
     state: "state_" + Math.random().toString(36).substring(2),
-    response_mode: "form_post",
+    response_mode: "query",
   });
   return `${AUTH_URL}?${params.toString()}`;
 }
@@ -90,7 +90,7 @@ export function AppleAuthCallback() {
           }
         )
         .then(async (res) => {
-          const { access_token } = res.data.data;
+          const { id_token } = res.data.data;
           const mode = configContext.config.mode;
           const baseUrl = configContext.config.apiUrl;
           const clientPK = configContext.config.clientPrivateKey;
@@ -100,7 +100,7 @@ export function AppleAuthCallback() {
               const provider = "apple";
               const oktoRes = await authClient.authenticate(
                 baseUrl,
-                access_token,
+                id_token,
                 provider,
                 clientPK,
                 clientSWA

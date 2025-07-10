@@ -57,10 +57,12 @@ export default function Homepage() {
   }
 
   async function getSessionInfo() {
+    console.log("getSessionInfo called");
     if (config.mode === "api") {
       const session = localStorage.getItem("okto_session");
       const sessionInfo = JSON.parse(session || "{}");
-      const oktoAuthToken = await authApi.getAuthorizationToken(session);
+      console.log(sessionInfo);
+      const oktoAuthToken = await authApi.getAuthorizationToken(sessionInfo);
       return { sessionInfo: sessionInfo, oktoAuthToken: oktoAuthToken };
     } else {
       const session = localStorage.getItem("okto_session");
