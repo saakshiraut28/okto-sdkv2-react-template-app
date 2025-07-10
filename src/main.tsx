@@ -7,6 +7,7 @@ import App from "./App.tsx";
 import "./index.css";
 import Navbar from "./components/Navbar.tsx";
 import { ConfigProvider, ConfigContext } from "./context/ConfigContext";
+import ApiOverlayContainer from "./components/ApiOverlayContainer";
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
@@ -24,6 +25,7 @@ createRoot(document.getElementById("root")!).render(
   <BrowserRouter>
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <ConfigProvider>
+        <ApiOverlayContainer />
         <AppWithProviders />
       </ConfigProvider>
     </GoogleOAuthProvider>
