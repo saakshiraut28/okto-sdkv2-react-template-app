@@ -557,7 +557,7 @@ function TwoStepTokenTransfer() {
 
   // Render form fields
   const renderForm = () => (
-    <div className="space-y-4">
+    <div className="space-y-4 bg-black  p-6 rounded-lg shadow-xl border border-gray-800">
       {/* Network Selection */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -808,8 +808,8 @@ function TwoStepTokenTransfer() {
                 <span className="text-gray-400">Recipient:</span> {recipient}
               </li>
               <li>
-                <span className="text-gray-400">Network:</span>{" "}
-                {chains.find((c) => c.caipId === selectedChain)?.networkName}
+                <span className="text-gray-400">Network:</span>
+                {selectedChain}
               </li>
             </ul>
           </div>
@@ -832,54 +832,62 @@ function TwoStepTokenTransfer() {
         title="Review Transaction"
       >
         <div className="space-y-4 text-white">
-          <p>Estimate details for your transaction.</p>
-          <div className="bg-gray-700 p-3 rounded">
-            <p className="text-sm text-gray-300 mb-1">
-              Estimate Transaction Details:
-            </p>
-            <div className="bg-gray-900 p-2 rounded font-mono text-sm overflow-auto max-h-80">
-              <CopyButton
-                text={JSON.stringify(estimateResponse, null, 2) ?? ""}
-              />
-              <pre>{JSON.stringify(estimateResponse, null, 2)}</pre>
-            </div>
-          </div>
-          <div className="bg-gray-700 p-3 rounded">
-            <p className="text-sm text-gray-300 mb-1">Summary:</p>
-            <ul className="space-y-1">
-              <li>
-                <span className="text-gray-400">Token:</span> {selectedToken}
-              </li>
-              <li>
-                <span className="text-gray-400">Amount:</span> {amount}
-              </li>
-              <li>
-                <span className="text-gray-400">Recipient:</span> {recipient}
-              </li>
-              <li>
-                <span className="text-gray-400">Network:</span>{" "}
-                {chains.find((c) => c.caipId === selectedChain)?.networkName}
-              </li>
-            </ul>
-          </div>
-          <div className="bg-gray-700 p-3 rounded">
-            <p className="text-sm text-gray-300 mb-1">UserOp:</p>
-            <div className="bg-gray-900 p-2 rounded font-mono text-sm overflow-auto max-h-80">
-              <CopyButton
-                text={JSON.stringify(estimateResponse.userOps, null, 2) ?? ""}
-              />
-              <pre>{JSON.stringify(estimateResponse.userOps, null, 2)}</pre>
-            </div>
-          </div>
-          <div className="flex justify-center pt-2">
-            <button
-              className="p-3 bg-green-600 hover:bg-green-700 text-white rounded transition-colors w-full"
-              onClick={handleTokenTransferExecuteAfterEstimate}
-              disabled={isLoading}
-            >
-              {isLoading ? "Executing..." : "Execute (UserOp)"}
-            </button>
-          </div>
+          {estimateResponse ? (
+            <>
+              <p>Estimate details for your transaction.</p>
+              <div className="bg-gray-700 p-3 rounded">
+                <p className="text-sm text-gray-300 mb-1">
+                  Estimate Transaction Details:
+                </p>
+                <div className="bg-gray-900 p-2 rounded font-mono text-sm overflow-auto max-h-80">
+                  <CopyButton
+                    text={JSON.stringify(estimateResponse, null, 2)}
+                  />
+                  <pre>{JSON.stringify(estimateResponse, null, 2)}</pre>
+                </div>
+              </div>
+              <div className="bg-gray-700 p-3 rounded">
+                <p className="text-sm text-gray-300 mb-1">Summary:</p>
+                <ul className="space-y-1">
+                  <li>
+                    <span className="text-gray-400">Token:</span>{" "}
+                    {selectedToken}
+                  </li>
+                  <li>
+                    <span className="text-gray-400">Amount:</span> {amount}
+                  </li>
+                  <li>
+                    <span className="text-gray-400">Recipient:</span>{" "}
+                    {recipient}
+                  </li>
+                  <li>
+                    <span className="text-gray-400">Network:</span>
+                    {selectedChain}
+                  </li>
+                </ul>
+              </div>
+              <div className="bg-gray-700 p-3 rounded">
+                <p className="text-sm text-gray-300 mb-1">UserOp:</p>
+                <div className="bg-gray-900 p-2 rounded font-mono text-sm overflow-auto max-h-80">
+                  <CopyButton
+                    text={JSON.stringify(estimateResponse.userOps, null, 2)}
+                  />
+                  <pre>{JSON.stringify(estimateResponse.userOps, null, 2)}</pre>
+                </div>
+              </div>
+              <div className="flex justify-center pt-2">
+                <button
+                  className="p-3 bg-green-600 hover:bg-green-700 text-white rounded transition-colors w-full"
+                  onClick={handleTokenTransferExecuteAfterEstimate}
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Executing..." : "Execute (UserOp)"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="text-gray-400">No estimate available.</p>
+          )}
         </div>
       </Modal>
 

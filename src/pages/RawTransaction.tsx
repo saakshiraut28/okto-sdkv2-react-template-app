@@ -28,7 +28,7 @@ interface ModalProps {
 const Modal = ({ isOpen, onClose, title, children }: ModalProps) =>
   !isOpen ? null : (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-xl">
+      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-white">{title}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white">
@@ -85,6 +85,8 @@ function EVMRawTransaction() {
   const [userOp, setUserOp] = useState<any | null>(null);
   const [signedUserOp, setSignedUserOp] = useState<any | null>(null);
   const [orderHistory, setOrderHistory] = useState<any | null>(null);
+  // Estimate state for API mode
+  const [estimateResponse, setEstimateResponse] = useState<any | null>(null);
 
   // Modal states
   const [activeModal, setActiveModal] = useState<string | null>(null);
@@ -486,6 +488,124 @@ function EVMRawTransaction() {
     }
   };
 
+  // Estimate + Execute (API mode only)
+  const handleRawTransactionEstimate = async () => {
+    if (config.mode == "sdk") return;
+    
+    if (mode === "EVM") {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const rawTransactionIntentParams = {
+          caip2Id: selectedChain,
+          transaction: {
+            from: from as Address,
+            to: to as Address,
+            value: value.toString(), // string for API
+            data: (data ? data : undefined) as any,
+          },
+        };
+        const sessionConfig = getSessionConfig();
+        const res = await intent.rawTransactionEstimate(
+          config.apiUrl,
+          rawTransactionIntentParams.caip2Id,
+          rawTransactionIntentParams.transaction,
+          sessionConfig,
+          config.clientSWA,
+          config.clientPrivateKey,
+          sponsorshipEnabled ? feePayer : undefined
+        );
+        setEstimateResponse(res.data);
+        showModal("estimate");
+        console.log("Estimate Response:", res.data);
+      } catch (error: any) {
+        console.error("Error in raw transaction estimate:", error);
+        setError(`Error in raw transaction estimate: ${error.message}`);
+      } finally {
+        setIsLoading(false);
+      }
+    } else if (mode === "APTOS") {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const payload = {
+          caip2Id: selectedChain,
+          transactions: {
+            function: moveFunction,
+            typeArguments: typeArguments
+              .split(",")
+              .map((arg) => arg.trim())
+              .filter(Boolean),
+            functionArguments: (() => {
+              try {
+                const input = `[${functionArguments}]`;
+                return JSON.parse(input, (_, value) => {
+                  if (typeof value === "string") {
+                    const trimmed = value.trim();
+                    if (/^0x[a-fA-F0-9]+$/.test(trimmed)) return trimmed;
+                    if (/^\d+$/.test(trimmed)) return Number(trimmed);
+                    return trimmed;
+                  }
+                  return value;
+                });
+              } catch (e) {
+                console.error("Invalid function arguments:", e);
+                return [];
+              }
+            })(),
+          },
+        };
+        const sessionConfig = getSessionConfig();
+        const res = await intent.rawTransactionEstimate(
+          config.apiUrl,
+          payload.caip2Id,
+          payload.transactions,
+          sessionConfig,
+          config.clientSWA,
+          config.clientPrivateKey
+        );
+        setEstimateResponse(res.data);
+        showModal("estimate");
+        console.log("Estimate Response (Aptos):", res.data);
+      } catch (error: any) {
+        console.error("Error in aptos raw transaction estimate:", error);
+        setError(`Error in aptos raw transaction estimate: ${error.message}`);
+      } finally {
+        setIsLoading(false);
+      }
+    }
+  };
+
+  const handleRawTransactionExecuteAfterEstimate = async () => {
+    if (config.mode !== "api") return;
+    if (!estimateResponse) {
+      setError("No estimate transaction to execute");
+      return;
+    }
+    setIsLoading(true);
+    setError(null);
+    let jobId;
+    try {
+      const session = localStorage.getItem("okto_session");
+      const sessionConfig = JSON.parse(session || "{}");
+      const res = await intent.rawTransactionExecuteAfterEstimate(
+        config.apiUrl,
+        estimateResponse.userOps,
+        sessionConfig
+      );
+      jobId = res.data?.jobId;
+      setJobId(jobId);
+      await handleGetOrderHistory(jobId);
+      showModal("jobId");
+      console.log("Job Id", jobId);
+    } catch (error: any) {
+      console.error("Error in executing the userop:", error);
+      setError(`Error in executing transaction: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Render modals
   const renderModals = () => (
     <>
@@ -658,6 +778,86 @@ function EVMRawTransaction() {
           </div>
         </div>
       </Modal>
+
+      {/* Estimate Transaction Modal (API mode only) */}
+      <Modal
+        isOpen={activeModal === "estimate"}
+        onClose={closeAllModals}
+        title="Review Transaction Estimate"
+      >
+        <div className="space-y-4 text-white">
+          <p>Estimate details for your transaction.</p>
+          <div className="bg-gray-700 p-3 rounded">
+            <p className="text-sm text-gray-300 mb-1">
+              Estimate Transaction Details:
+            </p>
+            <div className="bg-gray-900 p-2 rounded font-mono text-sm overflow-auto max-h-80">
+              <CopyButton
+                text={JSON.stringify(estimateResponse, null, 2) ?? ""}
+              />
+              <pre>{JSON.stringify(estimateResponse, null, 2)}</pre>
+            </div>
+          </div>
+          <div className="bg-gray-700 p-3 rounded">
+            <p className="text-sm text-gray-300 mb-1">Summary:</p>
+            {mode === "EVM" ? (
+              <ul className="space-y-1">
+                <li>
+                  <span className="text-gray-400">From:</span> {from}
+                </li>
+                <li>
+                  <span className="text-gray-400">To:</span> {to}
+                </li>
+                <li>
+                  <span className="text-gray-400">Value:</span> {value}
+                </li>
+                <li>
+                  <span className="text-gray-400">Network:</span>
+                  {selectedChain}
+                </li>
+              </ul>
+            ) : null}
+            {mode === "APTOS" ? (
+              <ul className="space-y-1">
+                <li>
+                  <span className="text-gray-400">function:</span>{" "}
+                  {moveFunction}
+                </li>
+                <li>
+                  <span className="text-gray-400">typeArguments:</span>{" "}
+                  {typeArguments}
+                </li>
+                <li>
+                  <span className="text-gray-400">functionArguments:</span>{" "}
+                  {functionArguments}
+                </li>
+                <li>
+                  <span className="text-gray-400">Network:</span>
+                  {selectedChain}
+                </li>
+              </ul>
+            ) : null}
+          </div>
+          <div className="bg-gray-700 p-3 rounded">
+            <p className="text-sm text-gray-300 mb-1">UserOp:</p>
+            <div className="bg-gray-900 p-2 rounded font-mono text-sm overflow-auto max-h-80">
+              <CopyButton
+                text={JSON.stringify(estimateResponse?.userOps, null, 2) ?? ""}
+              />
+              <pre>{JSON.stringify(estimateResponse?.userOps, null, 2)}</pre>
+            </div>
+          </div>
+          <div className="flex justify-center pt-2">
+            <button
+              className="p-3 bg-green-600 hover:bg-green-700 text-white rounded transition-colors w-full"
+              onClick={handleRawTransactionExecuteAfterEstimate}
+              disabled={isLoading}
+            >
+              {isLoading ? "Executing..." : "Execute (UserOp)"}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </>
   );
 
@@ -669,9 +869,7 @@ function EVMRawTransaction() {
       >
         Home
       </button>
-      <h1 className="text-white font-bold text-3xl mb-8">
-        Raw Transaction
-      </h1>
+      <h1 className="text-white font-bold text-3xl mb-8">Raw Transaction</h1>
       <p className="text-white font-regular text-lg mb-6">
         For a detailed overview of Raw Transaction intent, refer to our
         documentation on{" "}
@@ -813,7 +1011,9 @@ function EVMRawTransaction() {
                 onClick={handleEVMRawTransaction}
                 disabled={isLoading || !selectedChain || !from || !to || !value}
               >
-                {isLoading ? "Processing..." : "Raw Transaction (Direct)"}
+                {isLoading
+                  ? "Processing..."
+                  : "Raw Transaction (Direct Execute)"}
               </button>
               {config.mode == "sdk" ? (
                 <button
@@ -824,6 +1024,20 @@ function EVMRawTransaction() {
                   }
                 >
                   {isLoading ? "Processing..." : "Raw Transaction UserOp"}
+                </button>
+              ) : null}
+              {/* API mode: Estimate + Execute */}
+              {config.mode === "api" ? (
+                <button
+                  className="w-full p-3 bg-green-600 hover:bg-green-700 text-white rounded transition-colors disabled:bg-green-800 disabled:opacity-50"
+                  onClick={handleRawTransactionEstimate}
+                  disabled={
+                    isLoading || !selectedChain || !from || !to || !value
+                  }
+                >
+                  {isLoading
+                    ? "Processing..."
+                    : "Raw Transaction (Estimate + Execute)"}
                 </button>
               ) : null}
             </div>
@@ -904,6 +1118,18 @@ function EVMRawTransaction() {
               >
                 {isLoading ? "Processing..." : "Raw Transaction (Aptos)"}
               </button>
+              {/* API mode: Estimate + Execute for Aptos */}
+              {config.mode === "api" ? (
+                <button
+                  className="w-full p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:bg-blue-800 disabled:opacity-50"
+                  onClick={handleRawTransactionEstimate}
+                  disabled={isLoading || !selectedChain || !moveFunction}
+                >
+                  {isLoading
+                    ? "Processing..."
+                    : "Raw Transaction (Aptos Estimate + Execute)"}
+                </button>
+              ) : null}
             </div>
 
             {/* Status/Error */}

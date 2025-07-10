@@ -13,6 +13,10 @@ import { nftTransfer as nftTransferUserOp } from "@okto_web3/react-sdk/userop";
 import { nftTransfer as nftTransferMain } from "@okto_web3/react-sdk";
 import CopyButton from "../components/CopyButton";
 import ViewExplorerURL from "../components/ViewExplorerURL";
+import { useContext } from "react";
+import { ConfigContext } from "../context/ConfigContext";
+import * as intent from "../api/intent";
+import * as explorer from "../api/explorer";
 
 // Modal Component
 interface ModalProps {
@@ -56,6 +60,7 @@ const RefreshIcon = () => (
 function TransferNFT() {
   const oktoClient = useOkto();
   const navigate = useNavigate();
+  const { config } = useContext(ConfigContext);
 
   // State management
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -82,6 +87,13 @@ function TransferNFT() {
   const [signedUserOp, setSignedUserOp] = useState<any | null>(null);
   const [orderHistory, setOrderHistory] = useState<any | null>(null);
   const [explorerUrl, setExplorerUrl] = useState<string | null>(null);
+  const [estimateResponse, setEstimateResponse] = useState<any | null>(null);
+
+  // Helper to get sessionConfig for API mode
+  const getSessionConfig = () => {
+    const session = localStorage.getItem("okto_session");
+    return JSON.parse(session || "{}");
+  };
 
   // Loading states
   const [loadingChains, setLoadingChains] = useState(true);
@@ -112,12 +124,19 @@ function TransferNFT() {
     closeAllModals();
   };
 
-  // Fetch chains on component mount
+  // Fetch chains on component mount (API/SDK mode)
   useEffect(() => {
     const fetchChains = async () => {
       setLoadingChains(true);
       try {
-        const chainsData = await getChains(oktoClient);
+        let chainsData;
+        if (config.mode === "api") {
+          const sessionConfig = getSessionConfig();
+          const res = await explorer.getChains(config.apiUrl, sessionConfig);
+          chainsData = res.data.network;
+        } else {
+          chainsData = await getChains(oktoClient);
+        }
         setChains(chainsData);
       } catch (error: any) {
         console.error("Error fetching chains:", error);
@@ -127,23 +146,30 @@ function TransferNFT() {
       }
     };
     fetchChains();
-  }, [oktoClient]);
+  }, [oktoClient, config]);
 
-  // Fetch NFTs when chain is selected
+  // Fetch NFTs when chain is selected (API/SDK mode)
   useEffect(() => {
     const fetchNfts = async () => {
       if (!selectedChain) {
         setPortfolio([]);
         return;
       }
-
       setLoadingNfts(true);
       setError("");
-
       try {
-        const response = await getPortfolioNFT(oktoClient);
-
-        const processedNfts = response.map((nft) => ({
+        let response;
+        if (config.mode === "api") {
+          const sessionConfig = getSessionConfig();
+          const res = await explorer.getPortfolioNFT(
+            config.apiUrl,
+            sessionConfig
+          );
+          response = res.data;
+        } else {
+          response = await getPortfolioNFT(oktoClient);
+        }
+        const processedNfts = response.map((nft: any) => ({
           address: nft.collectionAddress,
           nft_id: nft.nftId,
           nft_type: nft.entityType,
@@ -153,9 +179,8 @@ function TransferNFT() {
           quantity: nft.quantity,
         }));
         const filteredNfts = processedNfts.filter(
-          (nft) => nft.caipId === selectedChain
+          (nft: any) => nft.caipId === selectedChain
         );
-
         setPortfolio(filteredNfts);
         setSelectedNFT("");
         setBalance("0");
@@ -167,7 +192,7 @@ function TransferNFT() {
       }
     };
     fetchNfts();
-  }, [selectedChain, oktoClient]);
+  }, [selectedChain, oktoClient, config]);
 
   // handle network change
   const handleNetworkChange = (e: any) => {
@@ -218,15 +243,25 @@ function TransferNFT() {
       setError("No job ID available");
       return;
     }
-
     setIsLoading(true);
     setError(null);
-
     try {
-      const orders = await getOrdersHistory(oktoClient, {
-        intentId,
-        intentType: "NFT_TRANSFER",
-      });
+      let orders;
+      if (config.mode === "api") {
+        const sessionConfig = getSessionConfig();
+        const res = await explorer.getOrderHistory(
+          config.apiUrl,
+          sessionConfig
+        );
+        orders = (res.data?.items || []).filter(
+          (o: any) => (o.intent_id || o.intentId) === intentId
+        );
+      } else {
+        orders = await getOrdersHistory(oktoClient, {
+          intentId,
+          intentType: "NFT_TRANSFER",
+        });
+      }
       setOrderHistory(orders?.[0]);
       console.log("Refreshed Order History:", orders);
       setActiveModal("orderHistory");
@@ -243,13 +278,24 @@ function TransferNFT() {
       setError("No job ID available to refresh");
       return;
     }
-
     setIsRefreshing(true);
     try {
-      const orders = await getOrdersHistory(oktoClient, {
-        intentId: jobId,
-        intentType: "NFT_TRANSFER",
-      });
+      let orders;
+      if (config.mode === "api") {
+        const sessionConfig = getSessionConfig();
+        const res = await explorer.getOrderHistory(
+          config.apiUrl,
+          sessionConfig
+        );
+        orders = (res.data?.items || []).filter(
+          (o: any) => (o.intent_id || o.intentId) === jobId
+        );
+      } else {
+        orders = await getOrdersHistory(oktoClient, {
+          intentId: jobId,
+          intentType: "NFT_TRANSFER",
+        });
+      }
       setOrderHistory(orders?.[0]);
     } catch (error: any) {
       console.error("Error refreshing order history", error);
@@ -263,18 +309,36 @@ function TransferNFT() {
   const handleTransferNft = async () => {
     setIsLoading(true);
     setError(null);
-
     try {
       const transferParams = validateFormData();
       let jobId;
-      if (selectedChain && sponsorshipEnabled) {
-        jobId = await nftTransferMain(
-          oktoClient,
-          transferParams,
-          feePayer as Address
+      if (config.mode === "api") {
+        const session = localStorage.getItem("okto_session");
+        const sessionConfig = JSON.parse(session || "{}");
+        const res = await intent.nftTransfer(
+          config.apiUrl,
+          transferParams.caip2Id,
+          transferParams.collectionAddress,
+          transferParams.nftId,
+          transferParams.recipientWalletAddress,
+          transferParams.amount,
+          transferParams.nftType,
+          sessionConfig,
+          config.clientSWA,
+          config.clientPrivateKey,
+          sponsorshipEnabled ? feePayer : undefined
         );
+        jobId = res.data?.jobId;
       } else {
-        jobId = await nftTransferMain(oktoClient, transferParams);
+        if (selectedChain && sponsorshipEnabled) {
+          jobId = await nftTransferMain(
+            oktoClient,
+            transferParams,
+            feePayer as Address
+          );
+        } else {
+          jobId = await nftTransferMain(oktoClient, transferParams);
+        }
       }
       setJobId(jobId);
       await handleGetOrderHistory(jobId);
@@ -354,6 +418,57 @@ function TransferNFT() {
     } catch (error: any) {
       console.error("Error in executing the userop:", error);
       setError(`Error in executing transaction: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleNftTransferEstimate = async () => {
+    if(config.mode === "sdk" ) return;
+    setIsLoading(true);
+    setError(null);
+    try {
+      const transferParams = validateFormData();
+      const session = localStorage.getItem("okto_session");
+      const sessionConfig = JSON.parse(session || "{}");
+      const res = await intent.nftTransferEstimate(
+        config.apiUrl,
+        transferParams.caip2Id,
+        transferParams.collectionAddress,
+        transferParams.nftId,
+        transferParams.recipientWalletAddress,
+        transferParams.amount,
+        transferParams.nftType,
+        sessionConfig,
+        config.clientSWA,
+        config.clientPrivateKey,
+        sponsorshipEnabled ? feePayer : undefined
+      );
+      setEstimateResponse(res.data);
+      showModal("estimate");
+    } catch (error: any) {
+      setError(error.message || "Error in NFT transfer estimate");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleNftTransferExecuteAfterEstimate = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const session = localStorage.getItem("okto_session");
+      const sessionConfig = JSON.parse(session || "{}");
+      const res = await intent.nftTransferExecuteAfterEstimate(
+        config.apiUrl,
+        estimateResponse.userOps,
+        sessionConfig
+      );
+      setJobId(res.data?.jobId);
+      await handleGetOrderHistory(res.data?.jobId);
+      showModal("jobId");
+    } catch (error: any) {
+      setError(error.message || "Error in NFT transfer execute after estimate");
     } finally {
       setIsLoading(false);
     }
@@ -443,8 +558,8 @@ function TransferNFT() {
                 {recipientWalletAddress}
               </li>
               <li>
-                <span className="text-gray-400">Network:</span>{" "}
-                {chains.find((c) => c.caipId === selectedChain)?.networkName}
+                <span className="text-gray-400">Network:</span>
+                {selectedChain}
               </li>
             </ul>
           </div>
@@ -573,6 +688,77 @@ function TransferNFT() {
           </div>
         </div>
       </Modal>
+      {/* Estimate Transaction Modal */}
+      <Modal
+        isOpen={activeModal === "estimate"}
+        onClose={closeAllModals}
+        title="Review NFT Transfer Estimate"
+      >
+        <div className="space-y-4 text-white">
+          {estimateResponse ? (
+            <>
+              <p>Estimate details for your transaction.</p>
+              <div className="bg-gray-700 p-3 rounded">
+                <p className="text-sm text-gray-300 mb-1">
+                  Estimate Transaction Details:
+                </p>
+                <div className="bg-gray-900 p-2 rounded font-mono text-sm overflow-auto max-h-80">
+                  <CopyButton
+                    text={JSON.stringify(estimateResponse, null, 2)}
+                  />
+                  <pre>{JSON.stringify(estimateResponse, null, 2)}</pre>
+                </div>
+              </div>
+              <div className="bg-gray-700 p-3 rounded">
+                <p className="text-sm text-gray-300 mb-1">Summary:</p>
+                <ul className="space-y-1">
+                  <li>
+                    <span className="text-gray-400">NFT:</span> {selectedNFT}
+                  </li>
+                  <li>
+                    <span className="text-gray-400">Collection Address:</span>{" "}
+                    {collectionAddress}
+                  </li>
+                  <li>
+                    <span className="text-gray-400">NFT ID:</span> {nftId}
+                  </li>
+                  <li>
+                    <span className="text-gray-400">Amount:</span> {amount}
+                  </li>
+                  <li>
+                    <span className="text-gray-400">Recipient:</span>{" "}
+                    {recipientWalletAddress}
+                  </li>
+                  <li>
+                    <span className="text-gray-400">Network:</span>
+                    {selectedChain}
+                  </li>
+                </ul>
+              </div>
+              <div className="bg-gray-700 p-3 rounded">
+                <p className="text-sm text-gray-300 mb-1">UserOp:</p>
+                <div className="bg-gray-900 p-2 rounded font-mono text-sm overflow-auto max-h-80">
+                  <CopyButton
+                    text={JSON.stringify(estimateResponse.userOps, null, 2)}
+                  />
+                  <pre>{JSON.stringify(estimateResponse.userOps, null, 2)}</pre>
+                </div>
+              </div>
+              <div className="flex justify-center pt-2">
+                <button
+                  className="p-3 bg-green-600 hover:bg-green-700 text-white rounded transition-colors w-full"
+                  onClick={handleNftTransferExecuteAfterEstimate}
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Executing..." : "Execute (UserOp)"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="text-gray-400">No estimate available.</p>
+          )}
+        </div>
+      </Modal>
     </>
   );
 
@@ -624,11 +810,17 @@ function TransferNFT() {
               <option value="" disabled>
                 {loadingChains ? "Loading chains..." : "Select a network"}
               </option>
-              {chains.map((chain) => (
-                <option key={chain.chainId} value={chain.caipId}>
-                  {chain.networkName} ({chain.caipId})
-                </option>
-              ))}
+              {chains &&
+                Array.isArray(chains) &&
+                chains.map((chain) => (
+                  <option
+                    key={chain.chainId || chain.chain_id}
+                    value={chain.caipId || chain.caip_id}
+                  >
+                    {chain.networkName || chain.network_name} (
+                    {chain.caipId || chain.caip_id})
+                  </option>
+                ))}
             </select>
           </div>
 
@@ -667,12 +859,16 @@ function TransferNFT() {
                 className="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white"
                 value={selectedNFT}
                 onChange={handleNFTSelection}
-                disabled={loadingNfts}
+                disabled={loadingNfts || !selectedChain}
               >
                 <option value="" disabled>
                   {loadingNfts
                     ? "Loading NFTs..."
-                    : "Select an NFT or enter details manually"}
+                    : !selectedChain
+                      ? "Select a network first"
+                      : portfolio.length === 0
+                        ? "No NFTs available"
+                        : "Select an NFT"}
                 </option>
                 {portfolio.map((nft) => (
                   <option
@@ -765,6 +961,7 @@ function TransferNFT() {
 
           {/* Transfer Buttons */}
           <div className="flex gap-4 pt-2 w-full">
+            {/* Direct Execute (API or SDK) */}
             <button
               className="w-full p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:bg-blue-800 disabled:opacity-50"
               onClick={handleTransferNft}
@@ -776,21 +973,40 @@ function TransferNFT() {
                 !recipientWalletAddress
               }
             >
-              Transfer NFT (Direct)
+              Transfer NFT (Direct Execute)
             </button>
-            <button
-              className="w-full p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:bg-blue-800 disabled:opacity-50"
-              onClick={handleNftTransferUserOp}
-              disabled={
-                isLoading ||
-                !selectedChain ||
-                !selectedNFT ||
-                !amount ||
-                !recipientWalletAddress
-              }
-            >
-              Create NFT Transfer UserOp
-            </button>
+            {/* UserOp (SDK only) */}
+            {config.mode === "sdk" && (
+              <button
+                className="w-full p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:bg-blue-800 disabled:opacity-50"
+                onClick={handleNftTransferUserOp}
+                disabled={
+                  isLoading ||
+                  !selectedChain ||
+                  !selectedNFT ||
+                  !amount ||
+                  !recipientWalletAddress
+                }
+              >
+                Create NFT Transfer UserOp
+              </button>
+            )}
+            {/* Estimate + Execute (API only) */}
+            {config.mode === "api" && (
+              <button
+                className="w-full p-3 bg-green-600 hover:bg-green-700 text-white rounded transition-colors disabled:bg-green-800 disabled:opacity-50"
+                onClick={handleNftTransferEstimate}
+                disabled={
+                  isLoading ||
+                  !selectedChain ||
+                  !selectedNFT ||
+                  !amount ||
+                  !recipientWalletAddress
+                }
+              >
+                NFT Transfer (Estimate + Execute)
+              </button>
+            )}
           </div>
         </div>
       </div>
