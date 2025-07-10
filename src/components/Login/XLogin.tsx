@@ -108,6 +108,7 @@ export function XAuthCallback() {
         )
         .then(async (res) => {
           const { access_token } = res.data.data;
+          console.log(access_token);
 
           // Okto login logic (API mode and SDK mode)
           const mode = configContext.config.mode;
