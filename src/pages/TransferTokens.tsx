@@ -38,7 +38,7 @@ interface ModalProps {
 const Modal = ({ isOpen, onClose, title, children }: ModalProps) =>
   !isOpen ? null : (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-xl">
+      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl">
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-bold text-white">{title}</h2>
           <button onClick={onClose} className="text-gray-400 hover:text-white">
@@ -90,6 +90,7 @@ function TwoStepTokenTransfer() {
 
   // Transaction state
   const [jobId, setJobId] = useState<string | null>(null);
+  const [estimateResponse, setEstimateResponse] = useState<any | null>(null);
   const [userOp, setUserOp] = useState<any | null>(null);
   const [signedUserOp, setSignedUserOp] = useState<any | null>(null);
   const [orderHistory, setOrderHistory] = useState<any | null>(null);
@@ -413,6 +414,75 @@ function TwoStepTokenTransfer() {
     }
   };
 
+  const handleTokenTransferEstimate = async () => {
+    if (config.mode == "sdk") return;
+
+    setIsLoading(true);
+    setError(null);
+    try {
+      const transferParams = validateFormData();
+      let estimateResponse;
+
+      // API mode: use intent.ts endpoint
+      const session = localStorage.getItem("okto_session");
+      const sessionConfig = JSON.parse(session || "{}");
+      const res = await intent.tokenTransferEstimate(
+        config.apiUrl,
+        transferParams.caip2Id,
+        transferParams.recipient,
+        transferParams.token,
+        transferParams.amount.toString(),
+        sessionConfig,
+        config.clientSWA,
+        config.clientPrivateKey,
+        sponsorshipEnabled ? feePayer : undefined
+      );
+      estimateResponse = res.data;
+
+      setEstimateResponse(estimateResponse);
+      showModal("estimate");
+      console.log("Estimate Response:", estimateResponse);
+    } catch (error: any) {
+      console.error("Error in token transfer estimate:", error);
+      setError(`Error in token transfer estimate: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTokenTransferExecuteAfterEstimate = async () => {
+    if (config.mode == "sdk") return;
+    if (!estimateResponse) {
+      setError("No estimate transaction to execute");
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    let jobId;
+
+    try {
+      // API mode: use intent.ts endpoint
+      const session = localStorage.getItem("okto_session");
+      const sessionConfig = JSON.parse(session || "{}");
+      const res = await intent.tokenTransferExecuteAfterEstimate(
+        config.apiUrl,
+        estimateResponse.userOps,
+        sessionConfig
+      );
+      jobId = res.data?.jobId;
+      setJobId(jobId);
+      await handleGetOrderHistory(jobId);
+      showModal("jobId");
+      console.log("Job Id", jobId);
+    } catch (error: any) {
+      console.error("Error in executing the userop:", error);
+      setError(`Error in executing transaction: ${error.message}`);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleTokenTransferUserOp = async () => {
     setIsLoading(true);
     setError(null);
@@ -644,7 +714,7 @@ function TwoStepTokenTransfer() {
             !recipient
           }
         >
-          {isLoading ? "Processing..." : "Transfer Token (Direct)"}
+          {isLoading ? "Processing..." : "Transfer Token (Direct Execute)"}
         </button>
         {config.mode === "sdk" ? (
           <button
@@ -659,6 +729,23 @@ function TwoStepTokenTransfer() {
             }
           >
             {isLoading ? "Processing..." : "Create Token Transfer UserOp"}
+          </button>
+        ) : null}
+        {config.mode === "api" ? (
+          <button
+            className="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors disabled:bg-purple-800 disabled:opacity-50"
+            onClick={handleTokenTransferEstimate}
+            disabled={
+              isLoading ||
+              !selectedChain ||
+              !selectedToken ||
+              !amount ||
+              !recipient
+            }
+          >
+            {isLoading
+              ? "Processing..."
+              : "Token Transfer (Estimate + Execute)"}
           </button>
         ) : null}
       </div>
@@ -733,6 +820,64 @@ function TwoStepTokenTransfer() {
               disabled={isLoading}
             >
               {isLoading ? "Signing..." : "Sign Transaction"}
+            </button>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Estimate Transaction Modal */}
+      <Modal
+        isOpen={activeModal === "estimate"}
+        onClose={closeAllModals}
+        title="Review Transaction"
+      >
+        <div className="space-y-4 text-white">
+          <p>Estimate details for your transaction.</p>
+          <div className="bg-gray-700 p-3 rounded">
+            <p className="text-sm text-gray-300 mb-1">
+              Estimate Transaction Details:
+            </p>
+            <div className="bg-gray-900 p-2 rounded font-mono text-sm overflow-auto max-h-80">
+              <CopyButton
+                text={JSON.stringify(estimateResponse, null, 2) ?? ""}
+              />
+              <pre>{JSON.stringify(estimateResponse, null, 2)}</pre>
+            </div>
+          </div>
+          <div className="bg-gray-700 p-3 rounded">
+            <p className="text-sm text-gray-300 mb-1">Summary:</p>
+            <ul className="space-y-1">
+              <li>
+                <span className="text-gray-400">Token:</span> {selectedToken}
+              </li>
+              <li>
+                <span className="text-gray-400">Amount:</span> {amount}
+              </li>
+              <li>
+                <span className="text-gray-400">Recipient:</span> {recipient}
+              </li>
+              <li>
+                <span className="text-gray-400">Network:</span>{" "}
+                {chains.find((c) => c.caipId === selectedChain)?.networkName}
+              </li>
+            </ul>
+          </div>
+          <div className="bg-gray-700 p-3 rounded">
+            <p className="text-sm text-gray-300 mb-1">UserOp:</p>
+            <div className="bg-gray-900 p-2 rounded font-mono text-sm overflow-auto max-h-80">
+              <CopyButton
+                text={JSON.stringify(estimateResponse.userOps, null, 2) ?? ""}
+              />
+              <pre>{JSON.stringify(estimateResponse.userOps, null, 2)}</pre>
+            </div>
+          </div>
+          <div className="flex justify-center pt-2">
+            <button
+              className="p-3 bg-green-600 hover:bg-green-700 text-white rounded transition-colors w-full"
+              onClick={handleTokenTransferExecuteAfterEstimate}
+              disabled={isLoading}
+            >
+              {isLoading ? "Executing..." : "Execute (UserOp)"}
             </button>
           </div>
         </div>
