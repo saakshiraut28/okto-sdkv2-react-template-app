@@ -134,8 +134,7 @@ function TwoStepTokenTransfer() {
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0)
       throw new Error("Please enter a valid amount");
 
-    if (!recipient)
-      throw new Error("Please enter a valid recipient address");
+    if (!recipient) throw new Error("Please enter a valid recipient address");
 
     if (mode === "EVM") {
       if (!recipient.startsWith("0x"))
@@ -572,7 +571,9 @@ function TwoStepTokenTransfer() {
         <select
           className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white"
           value={mode}
-          onChange={(e) => setMode(e.target.value as "EVM" | "APTOS" | "SOLANA")}
+          onChange={(e) =>
+            setMode(e.target.value as "EVM" | "APTOS" | "SOLANA")
+          }
           disabled={isLoading}
         >
           <option value="EVM">EVM</option>
