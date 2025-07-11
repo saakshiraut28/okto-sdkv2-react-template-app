@@ -28,7 +28,7 @@ export default function LoginPage() {
       </div>
 
       {/* Tab Navigation */}
-      <div className="w-full max-w-md mb-6">
+      <div className="w-full max-w-xl mb-6">
         <div className="flex border-b border-gray-700">
           <button
             onClick={() => {
