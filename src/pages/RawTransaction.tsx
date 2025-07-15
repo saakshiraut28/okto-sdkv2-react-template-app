@@ -113,19 +113,19 @@ function EVMRawTransaction() {
 
   // Add a new instruction
   const addInstruction = () => {
-    setInstructions(prev => [
+    setInstructions((prev) => [
       ...prev,
       {
         programId: "",
         data: "",
-        keys: []
-      }
+        keys: [],
+      },
     ]);
   };
 
   // Remove an instruction
   const removeInstruction = (index: number) => {
-    setInstructions(prev => prev.filter((_, i) => i !== index));
+    setInstructions((prev) => prev.filter((_, i) => i !== index));
   };
 
   // Update an instruction field
@@ -134,7 +134,7 @@ function EVMRawTransaction() {
     field: keyof SolanaInstruction,
     value: SolanaInstruction[typeof field]
   ) => {
-    setInstructions(prev => {
+    setInstructions((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
       return updated;
@@ -143,14 +143,14 @@ function EVMRawTransaction() {
 
   // Add a key to an instruction
   const addKey = (instructionIndex: number) => {
-    setInstructions(prev => {
+    setInstructions((prev) => {
       const updated = [...prev];
       updated[instructionIndex] = {
         ...updated[instructionIndex],
         keys: [
           ...updated[instructionIndex].keys,
-          { pubkey: "", isSigner: false, isWritable: false }
-        ]
+          { pubkey: "", isSigner: false, isWritable: false },
+        ],
       };
       return updated;
     });
@@ -158,11 +158,11 @@ function EVMRawTransaction() {
 
   // Remove a key from an instruction
   const removeKey = (instructionIndex: number, keyIndex: number) => {
-    setInstructions(prev => {
+    setInstructions((prev) => {
       const updated = [...prev];
       updated[instructionIndex] = {
         ...updated[instructionIndex],
-        keys: updated[instructionIndex].keys.filter((_, i) => i !== keyIndex)
+        keys: updated[instructionIndex].keys.filter((_, i) => i !== keyIndex),
       };
       return updated;
     });
@@ -175,7 +175,7 @@ function EVMRawTransaction() {
     field: keyof SolanaKey,
     value: string | boolean
   ) => {
-    setInstructions(prev => {
+    setInstructions((prev) => {
       const updated = [...prev];
       const keys = [...updated[instructionIndex].keys];
       keys[keyIndex] = { ...keys[keyIndex], [field]: value };
@@ -587,25 +587,25 @@ function EVMRawTransaction() {
     try {
       if (config.mode === "api") {
         // API mode: prepare transaction data for API call
-        const processedInstructions = instructions.map(instruction => ({
+        const processedInstructions = instructions.map((instruction) => ({
           programId: instruction.programId,
           data: instruction.data
-            .split(',')
-            .map(num => parseInt(num.trim()))
-            .filter(num => !isNaN(num)),
-          keys: instruction.keys.map(key => ({
+            .split(",")
+            .map((num) => parseInt(num.trim()))
+            .filter((num) => !isNaN(num)),
+          keys: instruction.keys.map((key) => ({
             pubkey: key.pubkey,
             isSigner: key.isSigner,
-            isWritable: key.isWritable
-          }))
+            isWritable: key.isWritable,
+          })),
         }));
 
         const rawTransactionIntentParams = {
           caip2Id: selectedChain,
           transaction: {
             instructions: processedInstructions,
-            signer: signer
-          }
+            signer: signer,
+          },
         };
 
         const sessionConfig = getSessionConfig();
@@ -1041,7 +1041,9 @@ function EVMRawTransaction() {
           <select
             className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white"
             value={mode}
-            onChange={(e) => setMode(e.target.value as "EVM" | "APTOS" | "SOLANA")}
+            onChange={(e) =>
+              setMode(e.target.value as "EVM" | "APTOS" | "SOLANA")
+            }
             disabled={isLoading}
           >
             <option value="EVM">EVM</option>
@@ -1250,7 +1252,10 @@ function EVMRawTransaction() {
               </label>
               <div className="border border-gray-700 rounded p-4 bg-gray-900">
                 {instructions.map((instruction, index) => (
-                  <div key={index} className="mb-4 border border-gray-600 rounded p-3 bg-gray-800">
+                  <div
+                    key={index}
+                    className="mb-4 border border-gray-600 rounded p-3 bg-gray-800"
+                  >
                     <div className="flex justify-between items-center mb-2">
                       <h4 className="text-sm font-medium text-gray-200">
                         Instruction {index + 1}
@@ -1271,7 +1276,9 @@ function EVMRawTransaction() {
                       <input
                         className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
                         value={instruction.programId}
-                        onChange={(e) => updateInstruction(index, 'programId', e.target.value)}
+                        onChange={(e) =>
+                          updateInstruction(index, "programId", e.target.value)
+                        }
                         placeholder="Enter Program ID"
                       />
                     </div>
@@ -1284,7 +1291,9 @@ function EVMRawTransaction() {
                       <input
                         className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
                         value={instruction.data}
-                        onChange={(e) => updateInstruction(index, 'data', e.target.value)}
+                        onChange={(e) =>
+                          updateInstruction(index, "data", e.target.value)
+                        }
                         placeholder="e.g. 1,2,3,4"
                       />
                     </div>
@@ -1295,9 +1304,14 @@ function EVMRawTransaction() {
                         Keys (AccountMeta)
                       </label>
                       {instruction.keys.map((key, keyIndex) => (
-                        <div key={keyIndex} className="mb-2 p-2 bg-gray-700 rounded border border-gray-600">
+                        <div
+                          key={keyIndex}
+                          className="mb-2 p-2 bg-gray-700 rounded border border-gray-600"
+                        >
                           <div className="flex justify-between items-center mb-1">
-                            <span className="text-xs text-gray-300">Key {keyIndex + 1}</span>
+                            <span className="text-xs text-gray-300">
+                              Key {keyIndex + 1}
+                            </span>
                             <button
                               className="text-red-400 hover:text-red-300 text-xs"
                               onClick={() => removeKey(index, keyIndex)}
@@ -1309,7 +1323,14 @@ function EVMRawTransaction() {
                           <input
                             className="w-full p-1 mb-1 bg-gray-600 border border-gray-500 rounded text-white text-xs placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
                             value={key.pubkey}
-                            onChange={(e) => updateKey(index, keyIndex, 'pubkey', e.target.value)}
+                            onChange={(e) =>
+                              updateKey(
+                                index,
+                                keyIndex,
+                                "pubkey",
+                                e.target.value
+                              )
+                            }
                             placeholder="Public Key"
                           />
 
@@ -1319,7 +1340,14 @@ function EVMRawTransaction() {
                                 type="checkbox"
                                 className="mr-1"
                                 checked={key.isSigner}
-                                onChange={(e) => updateKey(index, keyIndex, 'isSigner', e.target.checked)}
+                                onChange={(e) =>
+                                  updateKey(
+                                    index,
+                                    keyIndex,
+                                    "isSigner",
+                                    e.target.checked
+                                  )
+                                }
                               />
                               Is Signer
                             </label>
@@ -1328,7 +1356,14 @@ function EVMRawTransaction() {
                                 type="checkbox"
                                 className="mr-1"
                                 checked={key.isWritable}
-                                onChange={(e) => updateKey(index, keyIndex, 'isWritable', e.target.checked)}
+                                onChange={(e) =>
+                                  updateKey(
+                                    index,
+                                    keyIndex,
+                                    "isWritable",
+                                    e.target.checked
+                                  )
+                                }
                               />
                               Is Writable
                             </label>
@@ -1358,25 +1393,30 @@ function EVMRawTransaction() {
             {/* Raw Transaction Button */}
             <div className="flex gap-x-2 w-full">
               <button
-                  className="w-full p-3 bg-orange-600 hover:bg-orange-700 text-white rounded transition-colors disabled:bg-orange-800 disabled:opacity-50"
-                  onClick={handleSolanaRawTransaction}
-                  disabled={isLoading || !selectedChain || !signer || instructions.length === 0}
-                >
-                  {isLoading ? "Processing..." : "Raw Transaction (Solana)"}
-                </button>
+                className="w-full p-3 bg-orange-600 hover:bg-orange-700 text-white rounded transition-colors disabled:bg-orange-800 disabled:opacity-50"
+                onClick={handleSolanaRawTransaction}
+                disabled={
+                  isLoading ||
+                  !selectedChain ||
+                  !signer ||
+                  instructions.length === 0
+                }
+              >
+                {isLoading ? "Processing..." : "Raw Transaction (Solana)"}
+              </button>
             </div>
 
-              {/* Status/Error */}
-              {error && (
-                <p className="mt-2 text-sm text-red-400 border border-red-800 p-2 my-2">
-                  ❌ Error: {error}
-                </p>
-              )}
-              {jobId && (
-                <p className="mt-2 text-sm text-green-400 border border-green-800 p-2 my-2">
-                  ✅ Job ID: {jobId}
-                </p>
-              )}
+            {/* Status/Error */}
+            {error && (
+              <p className="mt-2 text-sm text-red-400 border border-red-800 p-2 my-2">
+                ❌ Error: {error}
+              </p>
+            )}
+            {jobId && (
+              <p className="mt-2 text-sm text-green-400 border border-green-800 p-2 my-2">
+                ✅ Job ID: {jobId}
+              </p>
+            )}
           </div>
         ) : (
           <div className="flex w-full flex-col items-center bg-black p-6 rounded-lg shadow-xl border border-gray-800">
@@ -1453,7 +1493,7 @@ function EVMRawTransaction() {
                 disabled={isLoading || !selectedChain || !moveFunction}
               >
                 {isLoading ? "Processing..." : "Raw Transaction (Aptos)"}
-                  </button>
+              </button>
             </div>
 
             {/* Status/Error */}
