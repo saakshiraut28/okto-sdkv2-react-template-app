@@ -631,7 +631,7 @@ function EVMRawTransaction() {
         return;
       }
     } catch (error: any) {
-      console.error("Error executing Aptos Raw Transaction:", error);
+      console.error("Error executing Solana Raw Transaction:", error);
       setError(error.message || "Transaction failed");
     } finally {
       setIsLoading(false);
