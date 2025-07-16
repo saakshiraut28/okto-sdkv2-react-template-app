@@ -24,6 +24,19 @@ interface ModalProps {
   children: React.ReactNode;
 }
 
+// Type definitions for Solana
+interface SolanaKey {
+  pubkey: string;
+  isSigner: boolean;
+  isWritable: boolean;
+}
+
+interface SolanaInstruction {
+  programId: string;
+  data: string; // comma-separated numbers as string
+  keys: SolanaKey[];
+}
+
 // Components
 const Modal = ({ isOpen, onClose, title, children }: ModalProps) =>
   !isOpen ? null : (
@@ -61,7 +74,7 @@ function EVMRawTransaction() {
   const navigate = useNavigate();
   const { config } = useContext(ConfigContext);
 
-  const [mode, setMode] = useState<"EVM" | "APTOS">("EVM");
+  const [mode, setMode] = useState<"EVM" | "APTOS" | "SOLANA">("EVM");
   const [chains, setChains] = useState<any[]>([]);
   const [selectedChain, setSelectedChain] = useState<any>("");
   const [from, setFrom] = useState("");
@@ -74,6 +87,9 @@ function EVMRawTransaction() {
   const [moveFunction, setMoveFunction] = useState("");
   const [typeArguments, setTypeArguments] = useState<string>(""); // comma-separated string
   const [functionArguments, setFunctionArguments] = useState<string>(""); // comma-separated string
+  // Solana-specific state
+  const [signer, setSigner] = useState("");
+  const [instructions, setInstructions] = useState<SolanaInstruction[]>([]);
 
   // UI state
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -95,6 +111,79 @@ function EVMRawTransaction() {
   const showModal = (modal: string) => setActiveModal(modal);
   const closeAllModals = () => setActiveModal(null);
 
+  // Add a new instruction
+  const addInstruction = () => {
+    setInstructions((prev) => [
+      ...prev,
+      {
+        programId: "",
+        data: "",
+        keys: [],
+      },
+    ]);
+  };
+
+  // Remove an instruction
+  const removeInstruction = (index: number) => {
+    setInstructions((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Update an instruction field
+  const updateInstruction = (
+    index: number,
+    field: keyof SolanaInstruction,
+    value: SolanaInstruction[typeof field]
+  ) => {
+    setInstructions((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  // Add a key to an instruction
+  const addKey = (instructionIndex: number) => {
+    setInstructions((prev) => {
+      const updated = [...prev];
+      updated[instructionIndex] = {
+        ...updated[instructionIndex],
+        keys: [
+          ...updated[instructionIndex].keys,
+          { pubkey: "", isSigner: false, isWritable: false },
+        ],
+      };
+      return updated;
+    });
+  };
+
+  // Remove a key from an instruction
+  const removeKey = (instructionIndex: number, keyIndex: number) => {
+    setInstructions((prev) => {
+      const updated = [...prev];
+      updated[instructionIndex] = {
+        ...updated[instructionIndex],
+        keys: updated[instructionIndex].keys.filter((_, i) => i !== keyIndex),
+      };
+      return updated;
+    });
+  };
+
+  // Update a field in a specific key of an instruction
+  const updateKey = (
+    instructionIndex: number,
+    keyIndex: number,
+    field: keyof SolanaKey,
+    value: string | boolean
+  ) => {
+    setInstructions((prev) => {
+      const updated = [...prev];
+      const keys = [...updated[instructionIndex].keys];
+      keys[keyIndex] = { ...keys[keyIndex], [field]: value };
+      updated[instructionIndex] = { ...updated[instructionIndex], keys };
+      return updated;
+    });
+  };
+
   const resetForm = () => {
     setSelectedChain("");
     setValue("");
@@ -112,7 +201,8 @@ function EVMRawTransaction() {
 
   const handleContractRead = () => {
     if (mode === "EVM") return handleEVMRawTransaction();
-    return handleAptosRawTransaction();
+    if (mode === "APTOS") return handleAptosRawTransaction();
+    handleSolanaRawTransaction();
   };
 
   // Helper to get sessionConfig for API mode
@@ -482,6 +572,66 @@ function EVMRawTransaction() {
       }
     } catch (error: any) {
       console.error("Error executing Aptos Raw Transaction:", error);
+      setError(error.message || "Transaction failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Handle solana raw txn
+  const handleSolanaRawTransaction = async () => {
+    setIsLoading(true);
+    setError(null);
+    setJobId(null);
+
+    try {
+      if (config.mode === "api") {
+        // API mode: prepare transaction data for API call
+        const processedInstructions = instructions.map((instruction) => ({
+          programId: instruction.programId,
+          data: instruction.data
+            .split(",")
+            .map((num) => parseInt(num.trim()))
+            .filter((num) => !isNaN(num)),
+          keys: instruction.keys.map((key) => ({
+            pubkey: key.pubkey,
+            isSigner: key.isSigner,
+            isWritable: key.isWritable,
+          })),
+        }));
+
+        const rawTransactionIntentParams = {
+          caip2Id: selectedChain,
+          transaction: {
+            instructions: processedInstructions,
+            signer: signer,
+          },
+        };
+
+        const sessionConfig = getSessionConfig();
+        const res = await intent.rawTransaction(
+          config.apiUrl,
+          rawTransactionIntentParams.caip2Id,
+          rawTransactionIntentParams.transaction,
+          sessionConfig,
+          config.clientSWA,
+          config.clientPrivateKey,
+          sponsorshipEnabled ? feePayer : undefined
+        );
+
+        if (res && res.data && res.data.jobId) {
+          setJobId(res.data.jobId);
+          await handleGetOrderHistory(res.data.jobId);
+          showModal("jobId");
+          console.log("Job ID:", res.data.jobId);
+        } else {
+          setError("No jobId returned from API");
+        }
+      } else {
+        return;
+      }
+    } catch (error: any) {
+      console.error("Error executing Solana Raw Transaction:", error);
       setError(error.message || "Transaction failed");
     } finally {
       setIsLoading(false);
@@ -891,14 +1041,16 @@ function EVMRawTransaction() {
           <select
             className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white"
             value={mode}
-            onChange={(e) => setMode(e.target.value as "EVM" | "APTOS")}
+            onChange={(e) =>
+              setMode(e.target.value as "EVM" | "APTOS" | "SOLANA")
+            }
             disabled={isLoading}
           >
             <option value="EVM">EVM</option>
             <option value="APTOS">Aptos</option>
+            <option value="SOLANA">Solana</option>
           </select>
         </div>
-
         {mode === "EVM" ? (
           <div className="flex w-full flex-col items-center bg-black p-6 rounded-lg shadow-xl border border-gray-800">
             {/* Network Selection */}
@@ -1011,9 +1163,7 @@ function EVMRawTransaction() {
                 onClick={handleEVMRawTransaction}
                 disabled={isLoading || !selectedChain || !from || !to || !value}
               >
-                {isLoading
-                  ? "Processing..."
-                  : "Raw Transaction (Direct Execute)"}
+                {isLoading ? "Processing..." : "Raw Transaction (Direct)"}
               </button>
               {config.mode == "sdk" ? (
                 <button
@@ -1026,21 +1176,247 @@ function EVMRawTransaction() {
                   {isLoading ? "Processing..." : "Raw Transaction UserOp"}
                 </button>
               ) : null}
-              {/* API mode: Estimate + Execute */}
-              {config.mode === "api" ? (
-                <button
-                  className="w-full p-3 bg-green-600 hover:bg-green-700 text-white rounded transition-colors disabled:bg-green-800 disabled:opacity-50"
-                  onClick={handleRawTransactionEstimate}
-                  disabled={
-                    isLoading || !selectedChain || !from || !to || !value
-                  }
-                >
-                  {isLoading
-                    ? "Processing..."
-                    : "Raw Transaction (Estimate + Execute)"}
-                </button>
-              ) : null}
             </div>
+          </div>
+        ) : mode === "SOLANA" ? (
+          <div className="flex w-full flex-col items-center bg-black p-6 rounded-lg shadow-xl border border-gray-800">
+            {/* Solana Network Selection */}
+            <div className="w-full my-2">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Select Network
+              </label>
+              <select
+                className="w-full p-3 bg-gray-800 border border-gray-700 rounded text-white"
+                value={selectedChain}
+                onChange={handleNetworkChange}
+                disabled={isLoading}
+              >
+                <option value="" disabled>
+                  Select a network
+                </option>
+                {chains.map((chain) => (
+                  <option
+                    key={chain.chainId || chain.chain_id}
+                    value={chain.caipId || chain.caip_id}
+                  >
+                    {chain.networkName || chain.network_name} (
+                    {chain.caipId || chain.caip_id})
+                  </option>
+                ))}
+              </select>
+            </div>
+            {selectedChain && (
+              <p className="mt-2 text-sm text-gray-300 border border-indigo-700 p-2 my-2">
+                {sponsorshipEnabled
+                  ? "Gas sponsorship is available ✅"
+                  : "⚠️ Sponsorship is not activated for this chain, the user must hold native tokens to proceed with the transfer. You can get the token from the respective faucets"}
+              </p>
+            )}
+
+            {selectedChain && sponsorshipEnabled && (
+              <div className="w-full my-2">
+                <label className="block text-sm font-medium text-gray-300 mb-1">
+                  Feepayer Address
+                </label>
+                <input
+                  type="text"
+                  className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                  value={feePayer}
+                  onChange={(e) => setFeePayer(e.target.value)}
+                  placeholder="Enter feepayer Address"
+                />
+              </div>
+            )}
+
+            {/* Signer Address Input */}
+            <div className="w-full my-2">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Signer Address
+              </label>
+              <input
+                className="w-full p-3 mb-4 bg-gray-800 border border-gray-700 rounded text-white placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                value={signer}
+                onChange={(e) => setSigner(e.target.value)}
+                placeholder="Enter Signer Address"
+              />
+              <p className="mt-2 text-sm text-gray-300 border border-indigo-700 p-2 my-2">
+                ⬆️ This is the embedded wallet address associated with the
+                currently signed-in user.
+              </p>
+            </div>
+
+            {/* Instructions Section */}
+            <div className="w-full my-2">
+              <label className="block text-sm font-medium text-gray-300 mb-1">
+                Instructions
+              </label>
+              <div className="border border-gray-700 rounded p-4 bg-gray-900">
+                {instructions.map((instruction, index) => (
+                  <div
+                    key={index}
+                    className="mb-4 border border-gray-600 rounded p-3 bg-gray-800"
+                  >
+                    <div className="flex justify-between items-center mb-2">
+                      <h4 className="text-sm font-medium text-gray-200">
+                        Instruction {index + 1}
+                      </h4>
+                      <button
+                        className="text-red-400 hover:text-red-300 text-sm"
+                        onClick={() => removeInstruction(index)}
+                      >
+                        Remove
+                      </button>
+                    </div>
+
+                    {/* Program ID */}
+                    <div className="mb-2">
+                      <label className="block text-xs text-gray-400 mb-1">
+                        Program ID
+                      </label>
+                      <input
+                        className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                        value={instruction.programId}
+                        onChange={(e) =>
+                          updateInstruction(index, "programId", e.target.value)
+                        }
+                        placeholder="Enter Program ID"
+                      />
+                    </div>
+
+                    {/* Instruction Data */}
+                    <div className="mb-2">
+                      <label className="block text-xs text-gray-400 mb-1">
+                        Data (comma separated numbers)
+                      </label>
+                      <input
+                        className="w-full p-2 bg-gray-700 border border-gray-600 rounded text-white text-sm placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                        value={instruction.data}
+                        onChange={(e) =>
+                          updateInstruction(index, "data", e.target.value)
+                        }
+                        placeholder="e.g. 1,2,3,4"
+                      />
+                    </div>
+
+                    {/* Keys Section */}
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">
+                        Keys (AccountMeta)
+                      </label>
+                      {instruction.keys.map((key, keyIndex) => (
+                        <div
+                          key={keyIndex}
+                          className="mb-2 p-2 bg-gray-700 rounded border border-gray-600"
+                        >
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="text-xs text-gray-300">
+                              Key {keyIndex + 1}
+                            </span>
+                            <button
+                              className="text-red-400 hover:text-red-300 text-xs"
+                              onClick={() => removeKey(index, keyIndex)}
+                            >
+                              Remove
+                            </button>
+                          </div>
+
+                          <input
+                            className="w-full p-1 mb-1 bg-gray-600 border border-gray-500 rounded text-white text-xs placeholder-gray-400 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-colors"
+                            value={key.pubkey}
+                            onChange={(e) =>
+                              updateKey(
+                                index,
+                                keyIndex,
+                                "pubkey",
+                                e.target.value
+                              )
+                            }
+                            placeholder="Public Key"
+                          />
+
+                          <div className="flex gap-2">
+                            <label className="flex items-center text-xs text-gray-300">
+                              <input
+                                type="checkbox"
+                                className="mr-1"
+                                checked={key.isSigner}
+                                onChange={(e) =>
+                                  updateKey(
+                                    index,
+                                    keyIndex,
+                                    "isSigner",
+                                    e.target.checked
+                                  )
+                                }
+                              />
+                              Is Signer
+                            </label>
+                            <label className="flex items-center text-xs text-gray-300">
+                              <input
+                                type="checkbox"
+                                className="mr-1"
+                                checked={key.isWritable}
+                                onChange={(e) =>
+                                  updateKey(
+                                    index,
+                                    keyIndex,
+                                    "isWritable",
+                                    e.target.checked
+                                  )
+                                }
+                              />
+                              Is Writable
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+
+                      <button
+                        className="w-full p-1 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs transition-colors"
+                        onClick={() => addKey(index)}
+                      >
+                        Add Key
+                      </button>
+                    </div>
+                  </div>
+                ))}
+
+                <button
+                  className="w-full p-2 bg-blue-600 hover:bg-blue-700 text-white rounded text-sm transition-colors"
+                  onClick={addInstruction}
+                >
+                  Add Instruction
+                </button>
+              </div>
+            </div>
+
+            {/* Raw Transaction Button */}
+            <div className="flex gap-x-2 w-full">
+              <button
+                className="w-full p-3 bg-orange-600 hover:bg-orange-700 text-white rounded transition-colors disabled:bg-orange-800 disabled:opacity-50"
+                onClick={handleSolanaRawTransaction}
+                disabled={
+                  isLoading ||
+                  !selectedChain ||
+                  !signer ||
+                  instructions.length === 0
+                }
+              >
+                {isLoading ? "Processing..." : "Raw Transaction (Solana)"}
+              </button>
+            </div>
+
+            {/* Status/Error */}
+            {error && (
+              <p className="mt-2 text-sm text-red-400 border border-red-800 p-2 my-2">
+                ❌ Error: {error}
+              </p>
+            )}
+            {jobId && (
+              <p className="mt-2 text-sm text-green-400 border border-green-800 p-2 my-2">
+                ✅ Job ID: {jobId}
+              </p>
+            )}
           </div>
         ) : (
           <div className="flex w-full flex-col items-center bg-black p-6 rounded-lg shadow-xl border border-gray-800">
@@ -1118,18 +1494,6 @@ function EVMRawTransaction() {
               >
                 {isLoading ? "Processing..." : "Raw Transaction (Aptos)"}
               </button>
-              {/* API mode: Estimate + Execute for Aptos */}
-              {config.mode === "api" ? (
-                <button
-                  className="w-full p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:bg-blue-800 disabled:opacity-50"
-                  onClick={handleRawTransactionEstimate}
-                  disabled={isLoading || !selectedChain || !moveFunction}
-                >
-                  {isLoading
-                    ? "Processing..."
-                    : "Raw Transaction (Aptos Estimate + Execute)"}
-                </button>
-              ) : null}
             </div>
 
             {/* Status/Error */}
