@@ -7,6 +7,7 @@ const EXPLORER_PORTFOLIO_URI = "api/explorer/portfolio";
 const EXPLORER_PORTFOLIO_ACTIVITY_URI = "api/explorer/portfolio-activity";
 const EXPLORER_PORTFOLIO_NFT_URI = "api/explorer/portfolio-nft";
 const EXPLORER_ORDER_HISTORY_URI = "api/explorer/order-history";
+const EXPLORER_READ_CONTRACT_URI = "api/explorer/read-contract-data";
 
 export const getAccount = async (baseURL: string, sessionConfig: any) => {
   const url = `${baseURL}/${EXPLORER_ACCOUNT_URI}`;
@@ -72,4 +73,18 @@ export const getOrderHistory = async (baseURL: string, sessionConfig: any) => {
     "Content-Type": "application/json",
   };
   return await post(url, headers, data);
+};
+
+export const readContractData = async (
+  baseURL: string,
+  sessionConfig: any,
+  caip2Id: string,
+  data: any
+) => {
+  const url = `${baseURL}/${EXPLORER_READ_CONTRACT_URI}`;
+  const body = { sessionConfig, caip2Id, data };
+  const headers = {
+    "Content-Type": "application/json",
+  };
+  return await post(url, headers, body);
 };

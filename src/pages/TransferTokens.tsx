@@ -495,14 +495,32 @@ function TwoStepTokenTransfer() {
     try {
       const transferParams = validateFormData();
       let userOp;
-      if (selectedChain && sponsorshipEnabled) {
-        userOp = await tokenTransfer(
-          oktoClient,
-          transferParams,
-          feePayer as Address
+      if (config.mode === "sdk") {
+        if (selectedChain && sponsorshipEnabled) {
+          userOp = await tokenTransfer(
+            oktoClient,
+            transferParams,
+            feePayer as Address
+          );
+        } else {
+          userOp = await tokenTransfer(oktoClient, transferParams);
+        }
+      } else if (config.mode === "api") {
+        // API mode: use intent.tokenTransferUserOp
+        const session = localStorage.getItem("okto_session");
+        const sessionConfig = JSON.parse(session || "{}");
+        const res = await intent.tokenTransferUserOp(
+          config.apiUrl,
+          transferParams.caip2Id,
+          transferParams.recipient,
+          transferParams.token,
+          transferParams.amount.toString(),
+          sessionConfig,
+          config.clientSWA,
+          config.clientPrivateKey,
+          sponsorshipEnabled ? feePayer : undefined
         );
-      } else {
-        userOp = await tokenTransfer(oktoClient, transferParams);
+        userOp = res;
       }
       setUserOp(userOp);
       showModal("unsignedOp");
@@ -525,7 +543,19 @@ function TwoStepTokenTransfer() {
     setError(null);
 
     try {
-      const signedOp = await oktoClient.signUserOp(userOp);
+      let signedOp;
+      if (config.mode === "sdk") {
+        signedOp = await oktoClient.signUserOp(userOp);
+      } else if (config.mode === "api") {
+        const session = localStorage.getItem("okto_session");
+        const sessionConfig = JSON.parse(session || "{}");
+        const res = await intent.signUserOp(
+          config.apiUrl,
+          userOp,
+          sessionConfig
+        );
+        signedOp = res;
+      }
       setSignedUserOp(signedOp);
       showModal("signedOp");
       console.log("Signed UserOp", signedOp);
@@ -547,7 +577,19 @@ function TwoStepTokenTransfer() {
     setError(null);
 
     try {
-      const jobId = await oktoClient.executeUserOp(signedUserOp);
+      let jobId;
+      if (config.mode === "sdk") {
+        jobId = await oktoClient.executeUserOp(signedUserOp);
+      } else if (config.mode === "api") {
+        const session = localStorage.getItem("okto_session");
+        const sessionConfig = JSON.parse(session || "{}");
+        const res = await intent.executeUserOp(
+          config.apiUrl,
+          signedUserOp,
+          sessionConfig
+        );
+        jobId = res.data?.jobId;
+      }
       setJobId(jobId);
       await handleGetOrderHistory(jobId);
       showModal("jobId");
@@ -740,39 +782,35 @@ function TwoStepTokenTransfer() {
         >
           {isLoading ? "Processing..." : "Transfer Token (Direct Execute)"}
         </button>
-        {config.mode === "sdk" ? (
-          <button
-            className="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors disabled:bg-purple-800 disabled:opacity-50"
-            onClick={handleTokenTransferUserOp}
-            disabled={
-              isLoading ||
-              !selectedChain ||
-              !selectedToken ||
-              !amount ||
-              !recipient
-            }
-          >
-            {isLoading ? "Processing..." : "Create Token Transfer UserOp"}
-          </button>
-        ) : null}
-        {config.mode === "api" ? (
-          <button
-            className="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors disabled:bg-purple-800 disabled:opacity-50"
-            onClick={handleTokenTransferEstimate}
-            disabled={
-              isLoading ||
-              !selectedChain ||
-              !selectedToken ||
-              !amount ||
-              !recipient
-            }
-          >
-            {isLoading
-              ? "Processing..."
-              : "Token Transfer (Estimate + Execute)"}
-          </button>
-        ) : null}
+        <button
+          className="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors disabled:bg-purple-800 disabled:opacity-50"
+          onClick={handleTokenTransferUserOp}
+          disabled={
+            isLoading ||
+            !selectedChain ||
+            !selectedToken ||
+            !amount ||
+            !recipient
+          }
+        >
+          {isLoading ? "Processing..." : "Create Token Transfer UserOp"}
+        </button>
       </div>
+      {config.mode === "api" ? (
+        <button
+          className="w-full p-3 block bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors disabled:bg-purple-800 disabled:opacity-50"
+          onClick={handleTokenTransferEstimate}
+          disabled={
+            isLoading ||
+            !selectedChain ||
+            !selectedToken ||
+            !amount ||
+            !recipient
+          }
+        >
+          {isLoading ? "Processing..." : "Token Transfer (Estimate + Execute)"}
+        </button>
+      ) : null}
     </div>
   );
 

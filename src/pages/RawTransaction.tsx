@@ -24,7 +24,6 @@ interface ModalProps {
   children: React.ReactNode;
 }
 
-// Type definitions for Solana
 interface SolanaKey {
   pubkey: string;
   isSigner: boolean;
@@ -87,7 +86,6 @@ function EVMRawTransaction() {
   const [moveFunction, setMoveFunction] = useState("");
   const [typeArguments, setTypeArguments] = useState<string>(""); // comma-separated string
   const [functionArguments, setFunctionArguments] = useState<string>(""); // comma-separated string
-  // Solana-specific state
   const [signer, setSigner] = useState("");
   const [instructions, setInstructions] = useState<SolanaInstruction[]>([]);
 
@@ -111,79 +109,6 @@ function EVMRawTransaction() {
   const showModal = (modal: string) => setActiveModal(modal);
   const closeAllModals = () => setActiveModal(null);
 
-  // Add a new instruction
-  const addInstruction = () => {
-    setInstructions((prev) => [
-      ...prev,
-      {
-        programId: "",
-        data: "",
-        keys: [],
-      },
-    ]);
-  };
-
-  // Remove an instruction
-  const removeInstruction = (index: number) => {
-    setInstructions((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  // Update an instruction field
-  const updateInstruction = (
-    index: number,
-    field: keyof SolanaInstruction,
-    value: SolanaInstruction[typeof field]
-  ) => {
-    setInstructions((prev) => {
-      const updated = [...prev];
-      updated[index] = { ...updated[index], [field]: value };
-      return updated;
-    });
-  };
-
-  // Add a key to an instruction
-  const addKey = (instructionIndex: number) => {
-    setInstructions((prev) => {
-      const updated = [...prev];
-      updated[instructionIndex] = {
-        ...updated[instructionIndex],
-        keys: [
-          ...updated[instructionIndex].keys,
-          { pubkey: "", isSigner: false, isWritable: false },
-        ],
-      };
-      return updated;
-    });
-  };
-
-  // Remove a key from an instruction
-  const removeKey = (instructionIndex: number, keyIndex: number) => {
-    setInstructions((prev) => {
-      const updated = [...prev];
-      updated[instructionIndex] = {
-        ...updated[instructionIndex],
-        keys: updated[instructionIndex].keys.filter((_, i) => i !== keyIndex),
-      };
-      return updated;
-    });
-  };
-
-  // Update a field in a specific key of an instruction
-  const updateKey = (
-    instructionIndex: number,
-    keyIndex: number,
-    field: keyof SolanaKey,
-    value: string | boolean
-  ) => {
-    setInstructions((prev) => {
-      const updated = [...prev];
-      const keys = [...updated[instructionIndex].keys];
-      keys[keyIndex] = { ...keys[keyIndex], [field]: value };
-      updated[instructionIndex] = { ...updated[instructionIndex], keys };
-      return updated;
-    });
-  };
-
   const resetForm = () => {
     setSelectedChain("");
     setValue("");
@@ -202,7 +127,7 @@ function EVMRawTransaction() {
   const handleContractRead = () => {
     if (mode === "EVM") return handleEVMRawTransaction();
     if (mode === "APTOS") return handleAptosRawTransaction();
-    handleSolanaRawTransaction();
+    if (mode === "SOLANA") return handleSolanaRawTransaction();
   };
 
   // Helper to get sessionConfig for API mode
@@ -342,33 +267,148 @@ function EVMRawTransaction() {
     setError(null);
 
     try {
-      const rawTransactionIntentParams = {
-        caip2Id: selectedChain,
-        transaction: {
-          from: from as Address,
-          to: to as Address,
-          value: BigInt(value),
-          data: (data ? data : undefined) as any,
-        },
-      };
-      console.log("Creating UserOp with params:", rawTransactionIntentParams);
-      let createdUserOp;
-      if (selectedChain && sponsorshipEnabled) {
-        createdUserOp = await evmRawTransactionUserop(
-          oktoClient,
-          rawTransactionIntentParams,
-          feePayer as Address
-        );
-      } else {
-        createdUserOp = await evmRawTransactionUserop(
-          oktoClient,
-          rawTransactionIntentParams
-        );
+      if (mode === "EVM") {
+        const rawTransactionIntentParams = {
+          caip2Id: selectedChain,
+          transaction: {
+            from: from as Address,
+            to: to as Address,
+            value: BigInt(value),
+            data: (data ? data : undefined) as any,
+          },
+        };
+        let createdUserOp;
+        if (config.mode === "sdk") {
+          if (selectedChain && sponsorshipEnabled) {
+            createdUserOp = await evmRawTransactionUserop(
+              oktoClient,
+              rawTransactionIntentParams,
+              feePayer as Address
+            );
+          } else {
+            createdUserOp = await evmRawTransactionUserop(
+              oktoClient,
+              rawTransactionIntentParams
+            );
+          }
+        } else if (config.mode === "api") {
+          const session = localStorage.getItem("okto_session");
+          const sessionConfig = JSON.parse(session || "{}");
+          const res = await intent.rawTransactionUserOp(
+            config.apiUrl,
+            selectedChain,
+            {
+              from: from as Address,
+              to: to as Address,
+              value: value.toString(),
+              data: (data ? data : undefined) as any,
+            },
+            sessionConfig,
+            config.clientSWA,
+            config.clientPrivateKey,
+            sponsorshipEnabled ? feePayer : undefined
+          );
+          createdUserOp = res;
+        }
+        setUserOp(createdUserOp);
+        showModal("unsignedOp");
+      } else if (mode === "APTOS") {
+        // Aptos userop
+        const payload = {
+          caip2Id: selectedChain,
+          transactions: {
+            function: moveFunction,
+            typeArguments: typeArguments
+              .split(",")
+              .map((arg) => arg.trim())
+              .filter(Boolean),
+            functionArguments: (() => {
+              try {
+                const input = `[${functionArguments}]`;
+                return JSON.parse(input, (_, value) => {
+                  if (typeof value === "string") {
+                    const trimmed = value.trim();
+                    if (/^0x[a-fA-F0-9]+$/.test(trimmed)) return trimmed;
+                    if (/^\d+$/.test(trimmed)) return Number(trimmed);
+                    return trimmed;
+                  }
+                  return value;
+                });
+              } catch (e) {
+                console.error("Invalid function arguments:", e);
+                return [];
+              }
+            })(),
+          },
+        };
+        let createdUserOp;
+        if (config.mode === "sdk") {
+          // If you have an aptosRawTransactionUserop, use it here. Otherwise, skip for now.
+          // createdUserOp = await aptosRawTransactionUserop(oktoClient, payload);
+          setError("Aptos UserOp via SDK not implemented");
+          setIsLoading(false);
+          return;
+        } else if (config.mode === "api") {
+          const session = localStorage.getItem("okto_session");
+          const sessionConfig = JSON.parse(session || "{}");
+          const res = await intent.rawTransactionUserOp(
+            config.apiUrl,
+            selectedChain,
+            payload.transactions,
+            sessionConfig,
+            config.clientSWA,
+            config.clientPrivateKey
+          );
+          createdUserOp = res;
+        }
+        setUserOp(createdUserOp);
+        showModal("unsignedOp");
+      } else if (mode === "SOLANA") {
+        // Solana userOp logic
+        const processedInstructions = instructions.map((instruction) => ({
+          programId: instruction.programId,
+          data: instruction.data
+            .split(",")
+            .map((num) => parseInt(num.trim()))
+            .filter((num) => !isNaN(num)),
+          keys: instruction.keys.map((key) => ({
+            pubkey: key.pubkey,
+            isSigner: key.isSigner,
+            isWritable: key.isWritable,
+          })),
+        }));
+        const solanaUserOpParams = {
+          caip2Id: selectedChain,
+          transaction: {
+            instructions: processedInstructions,
+            signer: signer,
+          },
+        };
+        let createdUserOp;
+        if (config.mode === "sdk") {
+          setError("Solana UserOp via SDK not implemented");
+          setIsLoading(false);
+          return;
+        } else if (config.mode === "api") {
+          const session = localStorage.getItem("okto_session");
+          const sessionConfig = JSON.parse(session || "{}");
+          const res = await intent.rawTransactionUserOp(
+            config.apiUrl,
+            solanaUserOpParams.caip2Id,
+            solanaUserOpParams.transaction,
+            sessionConfig,
+            config.clientSWA,
+            config.clientPrivateKey,
+            sponsorshipEnabled ? feePayer : undefined
+          );
+          createdUserOp = res;
+        }
+        setUserOp(createdUserOp);
+        showModal("unsignedOp");
       }
-      setUserOp(createdUserOp);
-      showModal("unsignedOp");
     } catch (error: any) {
       console.error("Error creating UserOp:", error);
+      setError(error.message || "Error creating UserOp");
     } finally {
       setIsLoading(false);
     }
@@ -383,12 +423,25 @@ function EVMRawTransaction() {
     setIsLoading(true);
     setError(null);
     try {
-      const signedOp = await oktoClient.signUserOp(userOp);
+      let signedOp;
+      if (config.mode === "sdk") {
+        signedOp = await oktoClient.signUserOp(userOp);
+      } else if (config.mode === "api") {
+        const session = localStorage.getItem("okto_session");
+        const sessionConfig = JSON.parse(session || "{}");
+        const res = await intent.signUserOp(
+          config.apiUrl,
+          userOp,
+          sessionConfig
+        );
+        signedOp = res;
+      }
       setSignedUserOp(signedOp);
       showModal("signedOp");
       console.log("Signed UserOp", signedOp);
     } catch (error: any) {
       console.error("Error signing UserOp:", error);
+      setError(error.message || "Error signing UserOp");
     } finally {
       setIsLoading(false);
     }
@@ -404,13 +457,26 @@ function EVMRawTransaction() {
     setError(null);
 
     try {
-      const jobId = await oktoClient.executeUserOp(signedUserOp);
+      let jobId;
+      if (config.mode === "sdk") {
+        jobId = await oktoClient.executeUserOp(signedUserOp);
+      } else if (config.mode === "api") {
+        const session = localStorage.getItem("okto_session");
+        const sessionConfig = JSON.parse(session || "{}");
+        const res = await intent.executeUserOp(
+          config.apiUrl,
+          signedUserOp,
+          sessionConfig
+        );
+        jobId = res.data?.jobId;
+      }
       setJobId(jobId);
       await handleGetOrderHistory(jobId);
       showModal("jobId");
       console.log("Job Id", jobId);
     } catch (error: any) {
       console.error("Error executing UserOp:", error);
+      setError(error.message || "Error executing UserOp");
     } finally {
       setIsLoading(false);
     }
@@ -490,32 +556,30 @@ function EVMRawTransaction() {
       if (config.mode === "api") {
         const payload = {
           caip2Id: selectedChain,
-          transactions: [
-            {
-              function: moveFunction,
-              typeArguments: typeArguments
-                .split(",")
-                .map((arg) => arg.trim())
-                .filter(Boolean),
-              functionArguments: (() => {
-                try {
-                  const input = `[${functionArguments}]`;
-                  return JSON.parse(input, (_, value) => {
-                    if (typeof value === "string") {
-                      const trimmed = value.trim();
-                      if (/^0x[a-fA-F0-9]+$/.test(trimmed)) return trimmed;
-                      if (/^\d+$/.test(trimmed)) return Number(trimmed);
-                      return trimmed;
-                    }
-                    return value;
-                  });
-                } catch (e) {
-                  console.error("Invalid function arguments:", e);
-                  return [];
-                }
-              })(),
-            },
-          ],
+          transactions: {
+            function: moveFunction,
+            typeArguments: typeArguments
+              .split(",")
+              .map((arg) => arg.trim())
+              .filter(Boolean),
+            functionArguments: (() => {
+              try {
+                const input = `[${functionArguments}]`;
+                return JSON.parse(input, (_, value) => {
+                  if (typeof value === "string") {
+                    const trimmed = value.trim();
+                    if (/^0x[a-fA-F0-9]+$/.test(trimmed)) return trimmed;
+                    if (/^\d+$/.test(trimmed)) return Number(trimmed);
+                    return trimmed;
+                  }
+                  return value;
+                });
+              } catch (e) {
+                console.error("Invalid function arguments:", e);
+                return [];
+              }
+            })(),
+          },
         };
         const sessionConfig = getSessionConfig();
         const res = await intent.rawTransaction(
@@ -572,66 +636,6 @@ function EVMRawTransaction() {
       }
     } catch (error: any) {
       console.error("Error executing Aptos Raw Transaction:", error);
-      setError(error.message || "Transaction failed");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Handle solana raw txn
-  const handleSolanaRawTransaction = async () => {
-    setIsLoading(true);
-    setError(null);
-    setJobId(null);
-
-    try {
-      if (config.mode === "api") {
-        // API mode: prepare transaction data for API call
-        const processedInstructions = instructions.map((instruction) => ({
-          programId: instruction.programId,
-          data: instruction.data
-            .split(",")
-            .map((num) => parseInt(num.trim()))
-            .filter((num) => !isNaN(num)),
-          keys: instruction.keys.map((key) => ({
-            pubkey: key.pubkey,
-            isSigner: key.isSigner,
-            isWritable: key.isWritable,
-          })),
-        }));
-
-        const rawTransactionIntentParams = {
-          caip2Id: selectedChain,
-          transaction: {
-            instructions: processedInstructions,
-            signer: signer,
-          },
-        };
-
-        const sessionConfig = getSessionConfig();
-        const res = await intent.rawTransaction(
-          config.apiUrl,
-          rawTransactionIntentParams.caip2Id,
-          rawTransactionIntentParams.transaction,
-          sessionConfig,
-          config.clientSWA,
-          config.clientPrivateKey,
-          sponsorshipEnabled ? feePayer : undefined
-        );
-
-        if (res && res.data && res.data.jobId) {
-          setJobId(res.data.jobId);
-          await handleGetOrderHistory(res.data.jobId);
-          showModal("jobId");
-          console.log("Job ID:", res.data.jobId);
-        } else {
-          setError("No jobId returned from API");
-        }
-      } else {
-        return;
-      }
-    } catch (error: any) {
-      console.error("Error executing Solana Raw Transaction:", error);
       setError(error.message || "Transaction failed");
     } finally {
       setIsLoading(false);
@@ -754,6 +758,139 @@ function EVMRawTransaction() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  // Handle solana raw txn
+  const handleSolanaRawTransaction = async () => {
+    setIsLoading(true);
+    setError(null);
+    setJobId(null);
+
+    try {
+      if (config.mode === "api") {
+        // API mode: prepare transaction data for API call
+        const processedInstructions = instructions.map((instruction) => ({
+          programId: instruction.programId,
+          data: instruction.data
+            .split(",")
+            .map((num) => parseInt(num.trim()))
+            .filter((num) => !isNaN(num)),
+          keys: instruction.keys.map((key) => ({
+            pubkey: key.pubkey,
+            isSigner: key.isSigner,
+            isWritable: key.isWritable,
+          })),
+        }));
+
+        const rawTransactionIntentParams = {
+          caip2Id: selectedChain,
+          transaction: {
+            instructions: processedInstructions,
+            signer: signer,
+          },
+        };
+
+        const sessionConfig = getSessionConfig();
+        const res = await intent.rawTransaction(
+          config.apiUrl,
+          rawTransactionIntentParams.caip2Id,
+          rawTransactionIntentParams.transaction,
+          sessionConfig,
+          config.clientSWA,
+          config.clientPrivateKey,
+          sponsorshipEnabled ? feePayer : undefined
+        );
+
+        if (res && res.data && res.data.jobId) {
+          setJobId(res.data.jobId);
+          await handleGetOrderHistory(res.data.jobId);
+          showModal("jobId");
+          console.log("Job ID:", res.data.jobId);
+        } else {
+          setError("No jobId returned from API");
+        }
+      } else {
+        return;
+      }
+    } catch (error: any) {
+      console.error("Error executing Aptos Raw Transaction:", error);
+      setError(error.message || "Transaction failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Add a new instruction
+  const addInstruction = () => {
+    setInstructions((prev) => [
+      ...prev,
+      {
+        programId: "",
+        data: "",
+        keys: [],
+      },
+    ]);
+  };
+
+  // Remove an instruction
+  const removeInstruction = (index: number) => {
+    setInstructions((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Update an instruction field
+  const updateInstruction = (
+    index: number,
+    field: keyof SolanaInstruction,
+    value: SolanaInstruction[typeof field]
+  ) => {
+    setInstructions((prev) => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [field]: value };
+      return updated;
+    });
+  };
+
+  // Add a key to an instruction
+  const addKey = (instructionIndex: number) => {
+    setInstructions((prev) => {
+      const updated = [...prev];
+      updated[instructionIndex] = {
+        ...updated[instructionIndex],
+        keys: [
+          ...updated[instructionIndex].keys,
+          { pubkey: "", isSigner: false, isWritable: false },
+        ],
+      };
+      return updated;
+    });
+  };
+
+  // Remove a key from an instruction
+  const removeKey = (instructionIndex: number, keyIndex: number) => {
+    setInstructions((prev) => {
+      const updated = [...prev];
+      updated[instructionIndex] = {
+        ...updated[instructionIndex],
+        keys: updated[instructionIndex].keys.filter((_, i) => i !== keyIndex),
+      };
+      return updated;
+    });
+  };
+
+  // Update a field in a specific key of an instruction
+  const updateKey = (
+    instructionIndex: number,
+    keyIndex: number,
+    field: keyof SolanaKey,
+    value: string | boolean
+  ) => {
+    setInstructions((prev) => {
+      const updated = [...prev];
+      const keys = [...updated[instructionIndex].keys];
+      keys[keyIndex] = { ...keys[keyIndex], [field]: value };
+      updated[instructionIndex] = { ...updated[instructionIndex], keys };
+      return updated;
+    });
   };
 
   // Render modals
@@ -1051,6 +1188,7 @@ function EVMRawTransaction() {
             <option value="SOLANA">Solana</option>
           </select>
         </div>
+
         {mode === "EVM" ? (
           <div className="flex w-full flex-col items-center bg-black p-6 rounded-lg shadow-xl border border-gray-800">
             {/* Network Selection */}
@@ -1157,26 +1295,36 @@ function EVMRawTransaction() {
               />
             </div>
 
-            <div className="flex gap-x-2 w-full">
+            <div className="flex gap-2 w-full">
               <button
                 className="w-full p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:bg-blue-800 disabled:opacity-50"
                 onClick={handleEVMRawTransaction}
                 disabled={isLoading || !selectedChain || !from || !to || !value}
               >
-                {isLoading ? "Processing..." : "Raw Transaction (Direct)"}
+                {isLoading
+                  ? "Processing..."
+                  : "Raw Transaction (Direct Execute)"}
               </button>
-              {config.mode == "sdk" ? (
-                <button
-                  className="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors disabled:bg-purple-800 disabled:opacity-50"
-                  onClick={handleCreateUserOp}
-                  disabled={
-                    isLoading || !selectedChain || !from || !to || !value
-                  }
-                >
-                  {isLoading ? "Processing..." : "Raw Transaction UserOp"}
-                </button>
-              ) : null}
+              <button
+                className="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors disabled:bg-purple-800 disabled:opacity-50"
+                onClick={handleCreateUserOp}
+                disabled={isLoading || !selectedChain || !from || !to || !value}
+              >
+                {isLoading ? "Processing..." : "Create Raw Transaction UserOp"}
+              </button>
             </div>
+            {/* API mode: Estimate + Execute */}
+            {config.mode === "api" ? (
+              <button
+                className="w-full mt-2 p-3 bg-green-600 hover:bg-green-700 text-white rounded transition-colors disabled:bg-green-800 disabled:opacity-50"
+                onClick={handleRawTransactionEstimate}
+                disabled={isLoading || !selectedChain || !from || !to || !value}
+              >
+                {isLoading
+                  ? "Processing..."
+                  : "Raw Transaction (Estimate + Execute)"}
+              </button>
+            ) : null}
           </div>
         ) : mode === "SOLANA" ? (
           <div className="flex w-full flex-col items-center bg-black p-6 rounded-lg shadow-xl border border-gray-800">
@@ -1404,6 +1552,18 @@ function EVMRawTransaction() {
               >
                 {isLoading ? "Processing..." : "Raw Transaction (Solana)"}
               </button>
+              <button
+                className="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors disabled:bg-purple-800 disabled:opacity-50"
+                onClick={handleCreateUserOp}
+                disabled={
+                  isLoading ||
+                  !selectedChain ||
+                  !signer ||
+                  instructions.length === 0
+                }
+              >
+                {isLoading ? "Processing..." : "Create Raw Transaction UserOp"}
+              </button>
             </div>
 
             {/* Status/Error */}
@@ -1492,9 +1652,31 @@ function EVMRawTransaction() {
                 onClick={handleAptosRawTransaction}
                 disabled={isLoading || !selectedChain || !moveFunction}
               >
-                {isLoading ? "Processing..." : "Raw Transaction (Aptos)"}
+                {isLoading
+                  ? "Processing..."
+                  : "Raw Transaction (Direct Execute)"}
+              </button>
+
+              <button
+                className="w-full p-3 bg-purple-600 hover:bg-purple-700 text-white rounded transition-colors disabled:bg-purple-800 disabled:opacity-50"
+                onClick={handleCreateUserOp}
+                disabled={isLoading || !selectedChain || !moveFunction}
+              >
+                {isLoading ? "Processing..." : "Create Raw Transaction UserOp"}
               </button>
             </div>
+            {/* API mode: Estimate + Execute for Aptos */}
+            {config.mode === "api" ? (
+              <button
+                className="w-full mt-2 p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:bg-blue-800 disabled:opacity-50"
+                onClick={handleRawTransactionEstimate}
+                disabled={isLoading || !selectedChain || !moveFunction}
+              >
+                {isLoading
+                  ? "Processing..."
+                  : "Raw Transaction (Estimate + Execute)"}
+              </button>
+            ) : null}
 
             {/* Status/Error */}
             {error && (

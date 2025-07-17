@@ -358,14 +358,33 @@ function TransferNFT() {
     try {
       const transferParams = validateFormData();
       let userOp;
-      if (selectedChain && sponsorshipEnabled) {
-        userOp = await nftTransfer(
-          oktoClient,
-          transferParams,
-          feePayer as Address
+      if (config.mode === "sdk") {
+        if (selectedChain && sponsorshipEnabled) {
+          userOp = await nftTransfer(
+            oktoClient,
+            transferParams,
+            feePayer as Address
+          );
+        } else {
+          userOp = await nftTransfer(oktoClient, transferParams);
+        }
+      } else if (config.mode === "api") {
+        const session = localStorage.getItem("okto_session");
+        const sessionConfig = JSON.parse(session || "{}");
+        const res = await intent.nftTransferUserOp(
+          config.apiUrl,
+          transferParams.caip2Id,
+          transferParams.collectionAddress,
+          transferParams.nftId,
+          transferParams.recipientWalletAddress,
+          transferParams.amount,
+          transferParams.nftType,
+          sessionConfig,
+          config.clientSWA,
+          config.clientPrivateKey,
+          sponsorshipEnabled ? feePayer : undefined
         );
-      } else {
-        userOp = await nftTransfer(oktoClient, transferParams);
+        userOp = res;
       }
       setUserOp(userOp);
       showModal("unsignedOp");
@@ -388,7 +407,19 @@ function TransferNFT() {
     setError(null);
 
     try {
-      const signedOp = await oktoClient.signUserOp(userOp);
+      let signedOp;
+      if (config.mode === "sdk") {
+        signedOp = await oktoClient.signUserOp(userOp);
+      } else if (config.mode === "api") {
+        const session = localStorage.getItem("okto_session");
+        const sessionConfig = JSON.parse(session || "{}");
+        const res = await intent.signUserOp(
+          config.apiUrl,
+          userOp,
+          sessionConfig
+        );
+        signedOp = res;
+      }
       setSignedUserOp(signedOp);
       showModal("signedOp");
       console.log("Signed UserOp", signedOp);
@@ -410,7 +441,19 @@ function TransferNFT() {
     setError(null);
 
     try {
-      const jobId = await oktoClient.executeUserOp(signedUserOp);
+      let jobId;
+      if (config.mode === "sdk") {
+        jobId = await oktoClient.executeUserOp(signedUserOp);
+      } else if (config.mode === "api") {
+        const session = localStorage.getItem("okto_session");
+        const sessionConfig = JSON.parse(session || "{}");
+        const res = await intent.executeUserOp(
+          config.apiUrl,
+          signedUserOp,
+          sessionConfig
+        );
+        jobId = res.data?.jobId;
+      }
       setJobId(jobId);
       await handleGetOrderHistory(jobId);
       showModal("jobId");
@@ -975,8 +1018,7 @@ function TransferNFT() {
             >
               Transfer NFT (Direct Execute)
             </button>
-            {/* UserOp (SDK only) */}
-            {config.mode === "sdk" && (
+     
               <button
                 className="w-full p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:bg-blue-800 disabled:opacity-50"
                 onClick={handleNftTransferUserOp}
@@ -990,11 +1032,12 @@ function TransferNFT() {
               >
                 Create NFT Transfer UserOp
               </button>
-            )}
+  
+          </div>
             {/* Estimate + Execute (API only) */}
             {config.mode === "api" && (
               <button
-                className="w-full p-3 bg-green-600 hover:bg-green-700 text-white rounded transition-colors disabled:bg-green-800 disabled:opacity-50"
+                className="w-full mt-2 p-3 bg-green-600 hover:bg-green-700 text-white rounded transition-colors disabled:bg-green-800 disabled:opacity-50"
                 onClick={handleNftTransferEstimate}
                 disabled={
                   isLoading ||
@@ -1007,7 +1050,6 @@ function TransferNFT() {
                 NFT Transfer (Estimate + Execute)
               </button>
             )}
-          </div>
         </div>
       </div>
     </main>
