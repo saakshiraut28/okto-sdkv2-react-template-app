@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { useOkto } from "@okto_web3/react-sdk";
 import CopyButton from "./CopyButton";
+import { useContext } from "react";
+import { ConfigContext } from "../context/ConfigContext";
+import * as intent from "../api/intent";
 
 interface SignComponentProps {}
 
 const SignComponent: React.FC<SignComponentProps> = () => {
   const oktoClient = useOkto();
+  const { config } = useContext(ConfigContext);
   const [message, setMessage] = useState<string>("");
   const [typedData, setTypedData] = useState<string>("");
   const [resultModalVisible, setResultModalVisible] = useState<boolean>(false);
@@ -25,7 +29,19 @@ const SignComponent: React.FC<SignComponentProps> = () => {
   // Function to handle signing a message
   const handleSignMessage = async (): Promise<void> => {
     try {
-      const signature = await oktoClient.signMessage(message);
+      let signature;
+      if (config.mode === "api") {
+        const session = localStorage.getItem("okto_session");
+        const sessionConfig = JSON.parse(session || "{}");
+        const res = await intent.signMessage(
+          config.apiUrl,
+          message,
+          sessionConfig
+        );
+        signature = res.data?.signature || JSON.stringify(res);
+      } else {
+        signature = await oktoClient.signMessage(message);
+      }
       console.log("Signed Message:", signature);
       setResult(signature);
       setSignType("Signed Message");
@@ -42,8 +58,21 @@ const SignComponent: React.FC<SignComponentProps> = () => {
   // Function to handle signing typed data
   const handleSignTypedData = async (): Promise<void> => {
     try {
-      const parsedData = JSON.parse(typedData);
-      const signature = await oktoClient.signTypedData(parsedData);
+      let signature;
+      if (config.mode === "api") {
+        const session = localStorage.getItem("okto_session");
+        const sessionConfig = JSON.parse(session || "{}");
+        // For API, send the typedData as a string
+        const res = await intent.signTypedData(
+          config.apiUrl,
+          typedData,
+          sessionConfig
+        );
+        signature = res.data?.signature || JSON.stringify(res);
+      } else {
+        const parsedData = JSON.parse(typedData);
+        signature = await oktoClient.signTypedData(parsedData);
+      }
       console.log("Signed Typed Data:", signature);
       setResult(signature);
       setSignType("Signed Typed Data");

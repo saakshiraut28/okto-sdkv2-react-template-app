@@ -10,27 +10,77 @@ type ApiResponse = {
   body?: any;
 };
 
-type Listener = (req: ApiRequest | null, res: ApiResponse | null) => void;
+  type ApiLogEntry = {
+  request: ApiRequest | null;
+  response: ApiResponse | null;
+  timestamp: number;
+};
 
-let request: ApiRequest | null = null;
-let response: ApiResponse | null = null;
+type Listener = (logs: ApiLogEntry[], latest: ApiLogEntry) => void;
+
+let logs: ApiLogEntry[] = [];
 const listeners: Listener[] = [];
 
-export function setApiRequest(req: ApiRequest) {
-  request = req;
-  listeners.forEach((l) => l(request, response));
+function notifyListeners() {
+  const latest = logs[logs.length - 1] || {
+    request: null,
+    response: null,
+    timestamp: Date.now(),
+  };
+  listeners.forEach((l) => l([...logs], latest));
 }
-export function setApiResponse(res: ApiResponse) {
-  response = res;
-  listeners.forEach((l) => l(request, response));
+
+export function addApiLogRequest(req: ApiRequest) {
+  logs.push({ request: req, response: null, timestamp: Date.now() });
+  notifyListeners();
 }
+
+export function addApiLogResponse(res: ApiResponse) {
+  if (logs.length === 0) {
+    logs.push({ request: null, response: res, timestamp: Date.now() });
+  } else {
+    logs[logs.length - 1] = {
+      ...logs[logs.length - 1],
+      response: res,
+    };
+  }
+  notifyListeners();
+}
+
 export function subscribeApiLog(listener: Listener) {
   listeners.push(listener);
+  const latest = logs[logs.length - 1] || {
+    request: null,
+    response: null,
+    timestamp: Date.now(),
+  };
+  listener([...logs], latest);
   return () => {
     const idx = listeners.indexOf(listener);
     if (idx > -1) listeners.splice(idx, 1);
   };
 }
+
+export function getApiLogHistory() {
+  return [...logs];
+}
+
+export function getLatestApiLog() {
+  return (
+    logs[logs.length - 1] || {
+      request: null,
+      response: null,
+      timestamp: Date.now(),
+    }
+  );
+}
+
+export function setApiRequest(req: ApiRequest) {
+  addApiLogRequest(req);
+}
+export function setApiResponse(res: ApiResponse) {
+  addApiLogResponse(res);
+}
 export function getApiLog() {
-  return { request, response };
+  return getLatestApiLog();
 }

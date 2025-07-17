@@ -3,14 +3,19 @@ import { useState, useEffect } from "react";
 import { rawRead, useOkto, getChains } from "@okto_web3/react-sdk";
 import { useNavigate } from "react-router-dom";
 import CopyButton from "../components/CopyButton";
+import { useContext } from "react";
+import { ConfigContext } from "../context/ConfigContext";
+import * as explorer from "../api/explorer";
 
 function RawRead() {
   const oktoClient = useOkto();
   const navigate = useNavigate();
+  const configContext = useContext(ConfigContext);
 
   const [mode, setMode] = useState<"EVM" | "APTOS">("EVM");
   const [chains, setChains] = useState<any[]>([]);
   const [selectedChain, setSelectedChain] = useState("");
+  const [baseUrl, setBaseUrl] = useState<string>("");
 
   // EVM state
   const [contractAddress, setContractAddress] = useState("");
@@ -27,11 +32,36 @@ function RawRead() {
   const [readResult, setReadResult] = useState<any>(null);
   const [showResult, setShowResult] = useState(false);
 
+  const fetchChains = async () => {
+    try {
+      let chainsData;
+      if (configContext.config.mode === "api") {
+        const session = localStorage.getItem("okto_session");
+        const sessionConfig = JSON.parse(session || "{}");
+        const res = await explorer.getChains(
+          configContext.config.apiUrl,
+          sessionConfig
+        );
+        chainsData = res.data.network;
+      } else {
+        chainsData = await getChains(oktoClient);
+      }
+      // Normalize chain data
+      const normalizedChains = (chainsData || []).map((chain: any) => ({
+        ...chain,
+        caipId: chain.caipId || chain.caip_id,
+        networkName: chain.networkName || chain.network_name,
+      }));
+      setChains(normalizedChains);
+    } catch (err: any) {
+      setError(`Failed to fetch chains: ${err.message}`);
+    }
+  };
+
   useEffect(() => {
-    getChains(oktoClient)
-      .then(setChains)
-      .catch((err) => setError(`Failed to fetch chains: ${err.message}`));
-  }, [oktoClient]);
+    fetchChains();
+    setBaseUrl(configContext.config.apiUrl);
+  }, [oktoClient, configContext]);
 
   const handleContractRead = () => {
     if (mode === "EVM") return handleEvmContractRead();
@@ -57,7 +87,19 @@ function RawRead() {
         },
       };
 
-      const result = await rawRead(oktoClient, payload);
+      let result;
+      if (configContext.config.mode === "api") {
+        const session = localStorage.getItem("okto_session");
+        const sessionConfig = JSON.parse(session || "{}");
+        result = await explorer.readContractData(
+          baseUrl,
+          sessionConfig,
+          payload.caip2Id,
+          payload.data
+        );
+      } else {
+        result = await rawRead(oktoClient, payload);
+      }
       setReadResult(result);
       setShowResult(true);
     } catch (err: any) {
@@ -84,7 +126,19 @@ function RawRead() {
         },
       };
 
-      const result = await rawRead(oktoClient, payload);
+      let result;
+      if (configContext.config.mode === "api") {
+        const session = localStorage.getItem("okto_session");
+        const sessionConfig = JSON.parse(session || "{}");
+        result = await explorer.readContractData(
+          baseUrl,
+          sessionConfig,
+          payload.caip2Id,
+          payload.data
+        );
+      } else {
+        result = await rawRead(oktoClient, payload);
+      }
       setReadResult(result);
       setShowResult(true);
     } catch (err: any) {
@@ -165,6 +219,8 @@ function RawRead() {
         )}
 
         <div className="bg-gray-800 p-6 rounded-lg space-y-4">
+          {/* Mode is set in login and used from context; no selector here */}
+
           {/* Mode Selector */}
           <div>
             <label className="block text-sm font-medium text-gray-300 mb-1">
