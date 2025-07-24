@@ -10,7 +10,7 @@ type ApiResponse = {
   body?: any;
 };
 
-  type ApiLogEntry = {
+type ApiLogEntry = {
   request: ApiRequest | null;
   response: ApiResponse | null;
   timestamp: number;

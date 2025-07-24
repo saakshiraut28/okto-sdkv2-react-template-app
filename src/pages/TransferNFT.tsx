@@ -1018,38 +1018,37 @@ function TransferNFT() {
             >
               Transfer NFT (Direct Execute)
             </button>
-     
-              <button
-                className="w-full p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:bg-blue-800 disabled:opacity-50"
-                onClick={handleNftTransferUserOp}
-                disabled={
-                  isLoading ||
-                  !selectedChain ||
-                  !selectedNFT ||
-                  !amount ||
-                  !recipientWalletAddress
-                }
-              >
-                Create NFT Transfer UserOp
-              </button>
-  
+
+            <button
+              className="w-full p-3 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors disabled:bg-blue-800 disabled:opacity-50"
+              onClick={handleNftTransferUserOp}
+              disabled={
+                isLoading ||
+                !selectedChain ||
+                !selectedNFT ||
+                !amount ||
+                !recipientWalletAddress
+              }
+            >
+              Create NFT Transfer UserOp
+            </button>
           </div>
-            {/* Estimate + Execute (API only) */}
-            {config.mode === "api" && (
-              <button
-                className="w-full mt-2 p-3 bg-green-600 hover:bg-green-700 text-white rounded transition-colors disabled:bg-green-800 disabled:opacity-50"
-                onClick={handleNftTransferEstimate}
-                disabled={
-                  isLoading ||
-                  !selectedChain ||
-                  !selectedNFT ||
-                  !amount ||
-                  !recipientWalletAddress
-                }
-              >
-                NFT Transfer (Estimate + Execute)
-              </button>
-            )}
+          {/* Estimate + Execute (API only) */}
+          {config.mode === "api" && (
+            <button
+              className="w-full mt-2 p-3 bg-green-600 hover:bg-green-700 text-white rounded transition-colors disabled:bg-green-800 disabled:opacity-50"
+              onClick={handleNftTransferEstimate}
+              disabled={
+                isLoading ||
+                !selectedChain ||
+                !selectedNFT ||
+                !amount ||
+                !recipientWalletAddress
+              }
+            >
+              NFT Transfer (Estimate + Execute)
+            </button>
+          )}
         </div>
       </div>
     </main>
