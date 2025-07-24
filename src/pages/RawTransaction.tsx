@@ -8,7 +8,10 @@ import {
   getAccount,
   getOrdersHistory,
   aptosRawTransaction,
+  svmRawTransaction,
 } from "@okto_web3/react-sdk";
+import { aptosRawTransaction as aptosRawTransactionUserop } from "@okto_web3/react-sdk/userop";
+import { svmRawTransaction as svmRawTransactionUserop } from "@okto_web3/react-sdk/userop";
 import { evmRawTransaction as evmRawTransactionUserop } from "@okto_web3/react-sdk/userop";
 import { useNavigate } from "react-router-dom";
 import CopyButton from "../components/CopyButton";
@@ -363,6 +366,7 @@ function EVMRawTransaction() {
         }
         setUserOp(createdUserOp);
         showModal("unsignedOp");
+        console.log("It's working");
       } else if (mode === "SOLANA") {
         // Solana userOp logic
         const processedInstructions = instructions.map((instruction) => ({
@@ -377,34 +381,50 @@ function EVMRawTransaction() {
             isWritable: key.isWritable,
           })),
         }));
-        const solanaUserOpParams = {
+
+        const rawTransactionIntentParams = {
           caip2Id: selectedChain,
-          transaction: {
-            instructions: processedInstructions,
-            signer: signer,
-          },
+          transactions: [
+            {
+              instructions: processedInstructions,
+              signers: [signer],
+              feePayerAddress: sponsorshipEnabled
+                ? (feePayer as Address)
+                : signer,
+            },
+          ],
         };
+
         let createdUserOp;
         if (config.mode === "sdk") {
-          setError("Solana UserOp via SDK not implemented");
+          if (selectedChain && sponsorshipEnabled) {
+            createdUserOp = await svmRawTransactionUserop(
+              oktoClient,
+              rawTransactionIntentParams,
+              feePayer as Address
+            );
+          } else {
+            console.error("Sponsorship is mandatory for solana");
+          }
           setIsLoading(false);
+          setUserOp(createdUserOp);
+          showModal("unsignedOp");
           return;
         } else if (config.mode === "api") {
           const session = localStorage.getItem("okto_session");
           const sessionConfig = JSON.parse(session || "{}");
           const res = await intent.rawTransactionUserOp(
             config.apiUrl,
-            solanaUserOpParams.caip2Id,
-            solanaUserOpParams.transaction,
+            rawTransactionIntentParams.caip2Id,
+            rawTransactionIntentParams.transactions,
             sessionConfig,
             config.clientSWA,
-            config.clientPrivateKey,
-            sponsorshipEnabled ? feePayer : undefined
+            config.clientPrivateKey
           );
           createdUserOp = res;
+          setUserOp(createdUserOp);
+          showModal("unsignedOp");
         }
-        setUserOp(createdUserOp);
-        showModal("unsignedOp");
       }
     } catch (error: any) {
       console.error("Error creating UserOp:", error);
@@ -784,17 +804,22 @@ function EVMRawTransaction() {
 
         const rawTransactionIntentParams = {
           caip2Id: selectedChain,
-          transaction: {
-            instructions: processedInstructions,
-            signer: signer,
-          },
+          transactions: [
+            {
+              instructions: processedInstructions,
+              signers: [signer],
+              feePayerAddress: sponsorshipEnabled
+                ? (feePayer as string)
+                : signer,
+            },
+          ],
         };
 
         const sessionConfig = getSessionConfig();
         const res = await intent.rawTransaction(
           config.apiUrl,
           rawTransactionIntentParams.caip2Id,
-          rawTransactionIntentParams.transaction,
+          rawTransactionIntentParams.transactions,
           sessionConfig,
           config.clientSWA,
           config.clientPrivateKey,
@@ -810,10 +835,45 @@ function EVMRawTransaction() {
           setError("No jobId returned from API");
         }
       } else {
-        return;
+        // Solana SDK Mode
+        const processedInstructions = instructions.map((instruction) => ({
+          programId: instruction.programId,
+          data: instruction.data
+            .split(",")
+            .map((num) => parseInt(num.trim()))
+            .filter((num) => !isNaN(num)),
+          keys: instruction.keys.map((key) => ({
+            pubkey: key.pubkey,
+            isSigner: key.isSigner,
+            isWritable: key.isWritable,
+          })),
+        }));
+
+        const rawTransactionIntentParams = {
+          caip2Id: selectedChain,
+          transactions: [
+            {
+              instructions: processedInstructions,
+              signers: [signer],
+              feePayerAddress: sponsorshipEnabled
+                ? (feePayer as Address)
+                : signer,
+            },
+          ],
+        };
+
+        let jobId = await svmRawTransaction(
+          oktoClient,
+          rawTransactionIntentParams,
+          feePayer as Address
+        );
+        setJobId(jobId);
+        await handleGetOrderHistory(jobId ? jobId : undefined);
+        showModal("jobId");
+        console.log(jobId);
       }
     } catch (error: any) {
-      console.error("Error executing Aptos Raw Transaction:", error);
+      console.error("Error executing Solana Raw Transaction:", error);
       setError(error.message || "Transaction failed");
     } finally {
       setIsLoading(false);
@@ -1166,7 +1226,7 @@ function EVMRawTransaction() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          EVM Raw Transaction
+          Okto Raw Transaction
         </a>
         .
       </p>

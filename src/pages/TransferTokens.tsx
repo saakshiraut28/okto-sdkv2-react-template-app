@@ -827,8 +827,12 @@ function TwoStepTokenTransfer() {
           <p>Your transaction has been submitted successfully.</p>
           <div className="bg-gray-700 p-3 rounded">
             <p className="text-sm text-gray-300 mb-1">Job ID:</p>
-            <CopyButton text={jobId ?? ""} />
-            <p className="font-mono break-all">{jobId}</p>
+            <CopyButton
+              text={typeof jobId === "string" ? jobId : JSON.stringify(jobId)}
+            />
+            <p className="font-mono break-all">
+              {JSON.stringify(jobId, null, 2)}
+            </p>
           </div>
           <div className="flex justify-center pt-2">
             <button
