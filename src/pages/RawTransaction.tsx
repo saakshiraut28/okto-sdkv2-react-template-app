@@ -266,6 +266,19 @@ function EVMRawTransaction() {
   };
 
   const handleCreateUserOp = async () => {
+    if (
+      selectedChain === "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" ||
+      selectedChain === "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
+    ) {
+      if (!sponsorshipEnabled) {
+        console.error(
+          "Sponsorship is mandatory for Solana Mainnet and Devnet."
+        );
+        setError("Sponsorship is mandatory for Solana Mainnet and Devnet.");
+        return;
+      }
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -799,6 +812,19 @@ function EVMRawTransaction() {
 
   // Handle solana raw txn
   const handleSolanaRawTransaction = async () => {
+    if (
+      selectedChain === "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" ||
+      selectedChain === "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
+    ) {
+      if (!sponsorshipEnabled) {
+        console.error(
+          "Sponsorship is mandatory for Solana Mainnet and Devnet."
+        );
+        setError("Sponsorship is mandatory for Solana Mainnet and Devnet.");
+        return;
+      }
+    }
+
     setIsLoading(true);
     setError(null);
     setJobId(null);
@@ -1265,6 +1291,13 @@ function EVMRawTransaction() {
             <option value="SOLANA">Solana</option>
           </select>
         </div>
+
+        {mode === "SOLANA" && (
+          <p className="mt-2 text-sm text-gray-300 border border-yellow-700 p-2 my-2">
+            ⚠️ <strong>For Solana Mainnet & Devnet:</strong> Sponsorship is
+            mandatory, and nonce wallets must be created manually.
+          </p>
+        )}
 
         {mode === "EVM" ? (
           <div className="flex w-full flex-col items-center bg-black p-6 rounded-lg shadow-xl border border-gray-800">
