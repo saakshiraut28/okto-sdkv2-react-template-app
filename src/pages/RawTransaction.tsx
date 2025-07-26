@@ -317,38 +317,55 @@ function EVMRawTransaction() {
         showModal("unsignedOp");
       } else if (mode === "APTOS") {
         // Aptos userop
+        const parsedArgs = (() => {
+          try {
+            const input = `[${functionArguments}]`;
+            return JSON.parse(input, (_, value) => {
+              if (typeof value === "string") {
+                const trimmed = value.trim();
+                if (/^0x[a-fA-F0-9]+$/.test(trimmed)) return trimmed;
+                if (/^\d+$/.test(trimmed)) return Number(trimmed);
+                return trimmed;
+              }
+              return value;
+            });
+          } catch (e) {
+            console.error("Invalid function arguments:", e);
+            return [];
+          }
+        })();
+
+        const transaction = {
+          function: moveFunction,
+          typeArguments: typeArguments
+            .split(",")
+            .map((arg) => arg.trim())
+            .filter(Boolean),
+          functionArguments: parsedArgs,
+        };
+
         const payload = {
           caip2Id: selectedChain,
-          transactions: {
-            function: moveFunction,
-            typeArguments: typeArguments
-              .split(",")
-              .map((arg) => arg.trim())
-              .filter(Boolean),
-            functionArguments: (() => {
-              try {
-                const input = `[${functionArguments}]`;
-                return JSON.parse(input, (_, value) => {
-                  if (typeof value === "string") {
-                    const trimmed = value.trim();
-                    if (/^0x[a-fA-F0-9]+$/.test(trimmed)) return trimmed;
-                    if (/^\d+$/.test(trimmed)) return Number(trimmed);
-                    return trimmed;
-                  }
-                  return value;
-                });
-              } catch (e) {
-                console.error("Invalid function arguments:", e);
-                return [];
-              }
-            })(),
-          },
+          transactions: [transaction],
         };
+
         let createdUserOp;
         if (config.mode === "sdk") {
-          // If you have an aptosRawTransactionUserop, use it here. Otherwise, skip for now.
-          // createdUserOp = await aptosRawTransactionUserop(oktoClient, payload);
-          setError("Aptos UserOp via SDK not implemented");
+          if (selectedChain && sponsorshipEnabled) {
+            createdUserOp = await aptosRawTransactionUserop(
+              oktoClient,
+              payload,
+              feePayer as Address
+            );
+          } else {
+            createdUserOp = await aptosRawTransactionUserop(
+              oktoClient,
+              payload
+            );
+          }
+          setIsLoading(false);
+          setUserOp(createdUserOp);
+          showModal("unsignedOp");
           setIsLoading(false);
           return;
         } else if (config.mode === "api") {

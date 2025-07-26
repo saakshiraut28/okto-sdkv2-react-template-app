@@ -242,7 +242,8 @@ function TwoStepTokenTransfer() {
             if (group.aggregationType === "token") {
               tokenBalanceMap.set(group.symbol, {
                 balance: group.balance,
-                usdtBalance: group.holdingsPriceUsdt ?? group.holdings_price_usdt,
+                usdtBalance:
+                  group.holdingsPriceUsdt ?? group.holdings_price_usdt,
                 inrBalance: group.holdingsPriceInr ?? group.holdings_price_inr,
               });
             }
@@ -253,8 +254,10 @@ function TwoStepTokenTransfer() {
                 const formattedBalance = Number(token.balance) / 10 ** decimals;
                 tokenBalanceMap.set(token.symbol, {
                   balance: formattedBalance,
-                  usdtBalance: token.holdingsPriceUsdt ?? group.holdings_price_usdt,
-                  inrBalance: token.holdingsPriceInr ?? group.holdings_price_inr,
+                  usdtBalance:
+                    token.holdingsPriceUsdt ?? group.holdings_price_usdt,
+                  inrBalance:
+                    token.holdingsPriceInr ?? group.holdings_price_inr,
                 });
               });
             }
@@ -280,7 +283,6 @@ function TwoStepTokenTransfer() {
     };
     fetchPortfolio();
   }, [oktoClient, selectedToken, config, tokens]);
-
 
   // handle network change
   const handleNetworkChange = (e: any) => {
@@ -384,9 +386,14 @@ function TwoStepTokenTransfer() {
     try {
       const transferParams = validateFormData();
 
-      if (selectedChain === "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" || selectedChain === "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1") {
+      if (
+        selectedChain === "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" ||
+        selectedChain === "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
+      ) {
         if (!sponsorshipEnabled) {
-          console.error("Sponsorship is mandatory for Solana Mainnet and Devnet.");
+          console.error(
+            "Sponsorship is mandatory for Solana Mainnet and Devnet."
+          );
           setError("Sponsorship is mandatory for Solana Mainnet and Devnet.");
           return;
         }
@@ -435,9 +442,14 @@ function TwoStepTokenTransfer() {
 
   const handleTokenTransferEstimate = async () => {
     if (config.mode == "sdk") return;
-    if (selectedChain === "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" || selectedChain === "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1") {
+    if (
+      selectedChain === "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" ||
+      selectedChain === "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
+    ) {
       if (!sponsorshipEnabled) {
-        console.error("Sponsorship is mandatory for Solana Mainnet and Devnet.");
+        console.error(
+          "Sponsorship is mandatory for Solana Mainnet and Devnet."
+        );
         setError("Sponsorship is mandatory for Solana Mainnet and Devnet.");
         return;
       }
@@ -509,9 +521,14 @@ function TwoStepTokenTransfer() {
   };
 
   const handleTokenTransferUserOp = async () => {
-    if (selectedChain === "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" || selectedChain === "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1") {
+    if (
+      selectedChain === "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" ||
+      selectedChain === "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
+    ) {
       if (!sponsorshipEnabled) {
-        console.error("Sponsorship is mandatory for Solana Mainnet and Devnet.");
+        console.error(
+          "Sponsorship is mandatory for Solana Mainnet and Devnet."
+        );
         setError("Sponsorship is mandatory for Solana Mainnet and Devnet.");
         return;
       }
@@ -654,7 +671,8 @@ function TwoStepTokenTransfer() {
 
       {mode === "SOLANA" && (
         <p className="mt-2 text-sm text-gray-300 border border-yellow-700 p-2 my-2">
-          ⚠️ <strong>For Solana Mainnet & Devnet:</strong> Sponsorship is mandatory, and nonce wallets must be created manually.
+          ⚠️ <strong>For Solana Mainnet & Devnet:</strong> Sponsorship is
+          mandatory, and nonce wallets must be created manually.
         </p>
       )}
 
@@ -755,7 +773,7 @@ function TwoStepTokenTransfer() {
                   ? Number(
                       portfolioBalance.find((pb) => pb.symbol === selectedToken)
                         ?.balance
-                  ).toFixed(8)
+                    ).toFixed(8)
                   : "N/A"}{" "}
                 &nbsp; INR:{" "}
                 {(selectedToken &&
