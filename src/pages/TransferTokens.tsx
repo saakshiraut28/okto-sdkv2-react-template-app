@@ -189,6 +189,7 @@ function TwoStepTokenTransfer() {
           const sessionConfig = getSessionConfig();
           const res = await explorer.getTokens(config.apiUrl, sessionConfig);
           tokensData = res.data.tokens;
+          console.log("API Tokens Data:", res.data.tokens);
         } else {
           tokensData = await getTokens(oktoClient);
         }
@@ -220,48 +221,51 @@ function TwoStepTokenTransfer() {
         let data;
         if (config.mode === "api") {
           const sessionConfig = getSessionConfig();
+          console.log("Session Config:", sessionConfig);
           const res = await explorer.getPortfolio(config.apiUrl, sessionConfig);
+          console.log("Portfolio response in API mode:", res.data);
           data = res.data;
+          data.groupTokens = data.group_tokens;
         } else {
           data = await getPortfolio(oktoClient);
         }
         setPortfolio(data);
-        // Process portfolio data into a more usable format
+
         if (data?.groupTokens) {
-          // Create a map of all tokens with their balances
           const tokenBalanceMap = new Map();
 
-          // Process direct tokens in groupTokens
+          // Build a symbol -> decimals map from tokens list
+          const tokenDecimalsMap = new Map();
+          tokens.forEach((t) => tokenDecimalsMap.set(t.symbol, t.decimals));
+
           data.groupTokens.forEach((group: any) => {
-            // Some items in groupTokens are direct tokens
             if (group.aggregationType === "token") {
               tokenBalanceMap.set(group.symbol, {
                 balance: group.balance,
-                usdtBalance: group.holdingsPriceUsdt,
-                inrBalance: group.holdingsPriceInr,
+                usdtBalance: group.holdingsPriceUsdt ?? group.holdings_price_usdt,
+                inrBalance: group.holdingsPriceInr ?? group.holdings_price_inr,
               });
             }
 
-            // Some items have nested tokens
             if (group.tokens && group.tokens.length > 0) {
               group.tokens.forEach((token: any) => {
+                const decimals = tokenDecimalsMap.get(token.symbol);
+                const formattedBalance = Number(token.balance) / 10 ** decimals;
                 tokenBalanceMap.set(token.symbol, {
-                  balance: token.balance,
-                  usdtBalance: token.holdingsPriceUsdt,
-                  inrBalance: token.holdingsPriceInr,
+                  balance: formattedBalance,
+                  usdtBalance: token.holdingsPriceUsdt ?? group.holdings_price_usdt,
+                  inrBalance: token.holdingsPriceInr ?? group.holdings_price_inr,
                 });
               });
             }
           });
 
-          // If we have a selected token, update its balance
           if (selectedToken && tokenBalanceMap.has(selectedToken)) {
             setTokenBalance(tokenBalanceMap.get(selectedToken));
           } else {
             setTokenBalance(null);
           }
 
-          // Store the map for later use
           setPortfolioBalance(
             Array.from(tokenBalanceMap.entries()).map(([symbol, data]) => ({
               symbol,
@@ -275,7 +279,8 @@ function TwoStepTokenTransfer() {
       }
     };
     fetchPortfolio();
-  }, [oktoClient, selectedToken, config]);
+  }, [oktoClient, selectedToken, config, tokens]);
+
 
   // handle network change
   const handleNetworkChange = (e: any) => {
@@ -378,6 +383,15 @@ function TwoStepTokenTransfer() {
     setError(null);
     try {
       const transferParams = validateFormData();
+
+      if (selectedChain === "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" || selectedChain === "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1") {
+        if (!sponsorshipEnabled) {
+          console.error("Sponsorship is mandatory for Solana Mainnet and Devnet.");
+          setError("Sponsorship is mandatory for Solana Mainnet and Devnet.");
+          return;
+        }
+      }
+
       let jobId;
       if (config.mode === "api") {
         // API mode: use intent.ts endpoint
@@ -421,7 +435,13 @@ function TwoStepTokenTransfer() {
 
   const handleTokenTransferEstimate = async () => {
     if (config.mode == "sdk") return;
-
+    if (selectedChain === "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" || selectedChain === "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1") {
+      if (!sponsorshipEnabled) {
+        console.error("Sponsorship is mandatory for Solana Mainnet and Devnet.");
+        setError("Sponsorship is mandatory for Solana Mainnet and Devnet.");
+        return;
+      }
+    }
     setIsLoading(true);
     setError(null);
     try {
@@ -489,6 +509,14 @@ function TwoStepTokenTransfer() {
   };
 
   const handleTokenTransferUserOp = async () => {
+    if (selectedChain === "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp" || selectedChain === "solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1") {
+      if (!sponsorshipEnabled) {
+        console.error("Sponsorship is mandatory for Solana Mainnet and Devnet.");
+        setError("Sponsorship is mandatory for Solana Mainnet and Devnet.");
+        return;
+      }
+    }
+
     setIsLoading(true);
     setError(null);
 
@@ -624,6 +652,12 @@ function TwoStepTokenTransfer() {
         </select>
       </div>
 
+      {mode === "SOLANA" && (
+        <p className="mt-2 text-sm text-gray-300 border border-yellow-700 p-2 my-2">
+          ⚠️ <strong>For Solana Mainnet & Devnet:</strong> Sponsorship is mandatory, and nonce wallets must be created manually.
+        </p>
+      )}
+
       {/* Network Selection */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-1">
@@ -721,7 +755,7 @@ function TwoStepTokenTransfer() {
                   ? Number(
                       portfolioBalance.find((pb) => pb.symbol === selectedToken)
                         ?.balance
-                    ).toFixed(4)
+                  ).toFixed(8)
                   : "N/A"}{" "}
                 &nbsp; INR:{" "}
                 {(selectedToken &&
