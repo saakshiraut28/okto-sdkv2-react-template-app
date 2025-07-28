@@ -203,9 +203,9 @@ function TwoStepTokenTransfer() {
             address: token.address,
             symbol: token.symbol,
             name: token.short_name || token.shortName || token.name,
-          decimals: parseInt(token.decimals), // Ensure decimals is a number
-          caipId: token.caipId || token.caip_id,
-        }));
+            decimals: parseInt(token.decimals), // Ensure decimals is a number
+            caipId: token.caipId || token.caip_id,
+          }));
         setTokens(filteredTokens);
       } catch (error: any) {
         console.error("Error fetching tokens:", error);
@@ -233,181 +233,232 @@ function TwoStepTokenTransfer() {
         }
         setPortfolio(data);
 
-      if (data?.groupTokens && tokens.length > 0) {
-        const tokenBalanceMap = new Map();
+        if (data?.groupTokens && tokens.length > 0) {
+          const tokenBalanceMap = new Map();
 
-        // Build comprehensive token info maps - use composite key (symbol + caipId)
-        const tokenInfoMap = new Map();
-        const selectedChainTokens = new Set();
-        const caipIdToNetworkMap = new Map();
+          // Build comprehensive token info maps - use composite key (symbol + caipId)
+          const tokenInfoMap = new Map();
+          const selectedChainTokens = new Set();
+          const caipIdToNetworkMap = new Map();
 
-        tokens.forEach((t) => {
-          const compositeKey = `${t.symbol}_${t.caipId}`;
-          tokenInfoMap.set(compositeKey, {
-            decimals: t.decimals,
-            address: t.address,
-            name: t.name,
-            caipId: t.caipId,
-            symbol: t.symbol,
-            networkId: t.networkId,
-            networkName: t.networkName
+          tokens.forEach((t) => {
+            const compositeKey = `${t.symbol}_${t.caipId}`;
+            tokenInfoMap.set(compositeKey, {
+              decimals: t.decimals,
+              address: t.address,
+              name: t.name,
+              caipId: t.caipId,
+              symbol: t.symbol,
+              networkId: t.networkId,
+              networkName: t.networkName,
+            });
+            selectedChainTokens.add(t.symbol);
           });
-          selectedChainTokens.add(t.symbol);
-        });
 
-        let allTokensData;
-        if (config.mode === "api") {
-          const sessionConfig = getSessionConfig();
-          const res = await explorer.getTokens(config.apiUrl, sessionConfig);
-          allTokensData = res.data.tokens;
-        } else {
-          allTokensData = await getTokens(oktoClient);
-        }
-
-        allTokensData.forEach((token: any) => {
-          const caipId = token.caipId || token.caip_id;
-          const networkId = token.networkId || token.network_id;
-          const networkName = token.networkName || token.network_name;
-          if (caipId && networkId) {
-            caipIdToNetworkMap.set(caipId, { networkId, networkName });
-          }
-        });
-
-        // Get the target network info for the selected chain
-        const selectedChainNetworkInfo = caipIdToNetworkMap.get(selectedChain);
-
-        data.groupTokens.forEach((group: any) => {
-          const groupNetworkId = group.network_id || group.networkId;
-          const groupNetworkName = group.network_name || group.networkName;
-          const aggregationType = group.aggregation_type || group.aggregationType;
-
-          if (!selectedChainNetworkInfo ||
-            (groupNetworkId !== selectedChainNetworkInfo.networkId &&
-              groupNetworkName !== selectedChainNetworkInfo.networkName)) {
-            return;
+          let allTokensData;
+          if (config.mode === "api") {
+            const sessionConfig = getSessionConfig();
+            const res = await explorer.getTokens(config.apiUrl, sessionConfig);
+            allTokensData = res.data.tokens;
+          } else {
+            allTokensData = await getTokens(oktoClient);
           }
 
-          if (aggregationType === "token" && group.symbol) {
-            if (!selectedChainTokens.has(group.symbol)) {
+          allTokensData.forEach((token: any) => {
+            const caipId = token.caipId || token.caip_id;
+            const networkId = token.networkId || token.network_id;
+            const networkName = token.networkName || token.network_name;
+            if (caipId && networkId) {
+              caipIdToNetworkMap.set(caipId, { networkId, networkName });
+            }
+          });
+
+          // Get the target network info for the selected chain
+          const selectedChainNetworkInfo =
+            caipIdToNetworkMap.get(selectedChain);
+
+          data.groupTokens.forEach((group: any) => {
+            const groupNetworkId = group.network_id || group.networkId;
+            const groupNetworkName = group.network_name || group.networkName;
+            const aggregationType =
+              group.aggregation_type || group.aggregationType;
+
+            if (
+              !selectedChainNetworkInfo ||
+              (groupNetworkId !== selectedChainNetworkInfo.networkId &&
+                groupNetworkName !== selectedChainNetworkInfo.networkName)
+            ) {
               return;
             }
 
-            const compositeKey = `${group.symbol}_${selectedChain}`;
-            const tokenInfo = tokenInfoMap.get(compositeKey);
-            let formattedBalance = group.view_balance || group.viewBalance || "0";
-
-            if (!formattedBalance || formattedBalance === "0") {
-              const rawBalance = group.balance;
-              if (rawBalance && tokenInfo?.decimals) {
-                const balanceNum = typeof rawBalance === 'string' ? parseFloat(rawBalance) : rawBalance;
-                formattedBalance = (balanceNum / Math.pow(10, tokenInfo.decimals)).toString();
-              }
-            }
-
-            tokenBalanceMap.set(group.symbol, {
-              balance: parseFloat(formattedBalance) || 0,
-              usdtBalance: parseFloat(group.holdings_price_usdt || group.holdingsPriceUsdt || "0"),
-              inrBalance: parseFloat(group.holdings_price_inr || group.holdingsPriceInr || "0"),
-              rawBalance: group.balance,
-              viewBalance: group.view_balance || group.viewBalance,
-              tokenInfo: tokenInfo,
-              networkName: groupNetworkName,
-              networkId: groupNetworkId
-            });
-          }
-
-          if (aggregationType === "group" && group.tokens && group.tokens.length > 0) {
-            group.tokens.forEach((token: any) => {
-              if (!selectedChainTokens.has(token.symbol)) {
+            if (aggregationType === "token" && group.symbol) {
+              if (!selectedChainTokens.has(group.symbol)) {
                 return;
               }
 
-              const compositeKey = `${token.symbol}_${selectedChain}`;
+              const compositeKey = `${group.symbol}_${selectedChain}`;
               const tokenInfo = tokenInfoMap.get(compositeKey);
-              let formattedBalance = token.view_balance || token.viewBalance || "0";
+              let formattedBalance =
+                group.view_balance || group.viewBalance || "0";
 
               if (!formattedBalance || formattedBalance === "0") {
-                const rawBalance = token.balance;
+                const rawBalance = group.balance;
                 if (rawBalance && tokenInfo?.decimals) {
-                  const balanceNum = typeof rawBalance === 'string' ? parseFloat(rawBalance) : rawBalance;
-                  formattedBalance = (balanceNum / Math.pow(10, tokenInfo.decimals)).toString();
+                  const balanceNum =
+                    typeof rawBalance === "string"
+                      ? parseFloat(rawBalance)
+                      : rawBalance;
+                  formattedBalance = (
+                    balanceNum / Math.pow(10, tokenInfo.decimals)
+                  ).toString();
                 }
               }
 
-              const tokenNetworkId = token.network_id || token.networkId;
-              const tokenNetworkName = token.network_name || token.networkName;
-
-              tokenBalanceMap.set(token.symbol, {
+              tokenBalanceMap.set(group.symbol, {
                 balance: parseFloat(formattedBalance) || 0,
-                usdtBalance: parseFloat(token.holdings_price_usdt || token.holdingsPriceUsdt || "0"),
-                inrBalance: parseFloat(token.holdings_price_inr || token.holdingsPriceInr || "0"),
-                rawBalance: token.balance,
-                viewBalance: token.view_balance || token.viewBalance,
+                usdtBalance: parseFloat(
+                  group.holdings_price_usdt || group.holdingsPriceUsdt || "0"
+                ),
+                inrBalance: parseFloat(
+                  group.holdings_price_inr || group.holdingsPriceInr || "0"
+                ),
+                rawBalance: group.balance,
+                viewBalance: group.view_balance || group.viewBalance,
                 tokenInfo: tokenInfo,
-                networkName: tokenNetworkName,
-                networkId: tokenNetworkId
+                networkName: groupNetworkName,
+                networkId: groupNetworkId,
               });
-            });
-          }
-
-          if (aggregationType === "group" && group.symbol && !group.tokens) {
-            if (!selectedChainTokens.has(group.symbol)) {
-              return;
             }
 
-            const compositeKey = `${group.symbol}_${selectedChain}`;
-            const tokenInfo = tokenInfoMap.get(compositeKey);
-            let formattedBalance = group.view_balance || group.viewBalance || group.balance || "0";
+            if (
+              aggregationType === "group" &&
+              group.tokens &&
+              group.tokens.length > 0
+            ) {
+              group.tokens.forEach((token: any) => {
+                if (!selectedChainTokens.has(token.symbol)) {
+                  return;
+                }
 
-            if ((!group.view_balance && !group.viewBalance) && group.balance && tokenInfo?.decimals) {
-              const rawBalance = typeof group.balance === 'string' ? 
-                parseFloat(group.balance) : group.balance;
-              formattedBalance = (rawBalance / Math.pow(10, tokenInfo.decimals)).toString();
+                const compositeKey = `${token.symbol}_${selectedChain}`;
+                const tokenInfo = tokenInfoMap.get(compositeKey);
+                let formattedBalance =
+                  token.view_balance || token.viewBalance || "0";
+
+                if (!formattedBalance || formattedBalance === "0") {
+                  const rawBalance = token.balance;
+                  if (rawBalance && tokenInfo?.decimals) {
+                    const balanceNum =
+                      typeof rawBalance === "string"
+                        ? parseFloat(rawBalance)
+                        : rawBalance;
+                    formattedBalance = (
+                      balanceNum / Math.pow(10, tokenInfo.decimals)
+                    ).toString();
+                  }
+                }
+
+                const tokenNetworkId = token.network_id || token.networkId;
+                const tokenNetworkName =
+                  token.network_name || token.networkName;
+
+                tokenBalanceMap.set(token.symbol, {
+                  balance: parseFloat(formattedBalance) || 0,
+                  usdtBalance: parseFloat(
+                    token.holdings_price_usdt || token.holdingsPriceUsdt || "0"
+                  ),
+                  inrBalance: parseFloat(
+                    token.holdings_price_inr || token.holdingsPriceInr || "0"
+                  ),
+                  rawBalance: token.balance,
+                  viewBalance: token.view_balance || token.viewBalance,
+                  tokenInfo: tokenInfo,
+                  networkName: tokenNetworkName,
+                  networkId: tokenNetworkId,
+                });
+              });
             }
 
-            tokenBalanceMap.set(group.symbol, {
-              balance: parseFloat(formattedBalance) || 0,
-              usdtBalance: parseFloat(group.holdings_price_usdt || group.holdingsPriceUsdt || "0"),
-              inrBalance: parseFloat(group.holdings_price_inr || group.holdingsPriceInr || "0"),
-              rawBalance: group.balance,
-              viewBalance: group.view_balance || group.viewBalance,
-              tokenInfo: tokenInfo,
-              networkName: groupNetworkName,
-              networkId: groupNetworkId
-            });
-          }
-        });
+            if (aggregationType === "group" && group.symbol && !group.tokens) {
+              if (!selectedChainTokens.has(group.symbol)) {
+                return;
+              }
 
-        // Set balance for selected token
-        if (selectedToken && tokenBalanceMap.has(selectedToken)) {
-          setTokenBalance(tokenBalanceMap.get(selectedToken));
-        } else {
-          setTokenBalance(null);
+              const compositeKey = `${group.symbol}_${selectedChain}`;
+              const tokenInfo = tokenInfoMap.get(compositeKey);
+              let formattedBalance =
+                group.view_balance || group.viewBalance || group.balance || "0";
+
+              if (
+                !group.view_balance &&
+                !group.viewBalance &&
+                group.balance &&
+                tokenInfo?.decimals
+              ) {
+                const rawBalance =
+                  typeof group.balance === "string"
+                    ? parseFloat(group.balance)
+                    : group.balance;
+                formattedBalance = (
+                  rawBalance / Math.pow(10, tokenInfo.decimals)
+                ).toString();
+              }
+
+              tokenBalanceMap.set(group.symbol, {
+                balance: parseFloat(formattedBalance) || 0,
+                usdtBalance: parseFloat(
+                  group.holdings_price_usdt || group.holdingsPriceUsdt || "0"
+                ),
+                inrBalance: parseFloat(
+                  group.holdings_price_inr || group.holdingsPriceInr || "0"
+                ),
+                rawBalance: group.balance,
+                viewBalance: group.view_balance || group.viewBalance,
+                tokenInfo: tokenInfo,
+                networkName: groupNetworkName,
+                networkId: groupNetworkId,
+              });
+            }
+          });
+
+          // Set balance for selected token
+          if (selectedToken && tokenBalanceMap.has(selectedToken)) {
+            setTokenBalance(tokenBalanceMap.get(selectedToken));
+          } else {
+            setTokenBalance(null);
+          }
+
+          // Set portfolio balance array
+          setPortfolioBalance(
+            Array.from(tokenBalanceMap.entries())
+              .map(([symbol, data]) => ({
+                symbol,
+                ...data,
+              }))
+              .filter(
+                (item) =>
+                  item.balance > 0 ||
+                  item.usdtBalance > 0 ||
+                  item.inrBalance > 0
+              ) // Only show tokens with balance
+          );
+
+          console.log(
+            "Processed token balances:",
+            Array.from(tokenBalanceMap.entries())
+          );
         }
-
-        // Set portfolio balance array
-        setPortfolioBalance(
-          Array.from(tokenBalanceMap.entries())
-            .map(([symbol, data]) => ({
-              symbol,
-              ...data,
-            }))
-            .filter(item => item.balance > 0 || item.usdtBalance > 0 || item.inrBalance > 0) // Only show tokens with balance
-        );
-
-        console.log("Processed token balances:", Array.from(tokenBalanceMap.entries()));
+      } catch (error: any) {
+        console.error("Error fetching portfolio:", error);
+        setError(`Failed to fetch portfolio: ${error.message}`);
       }
-    } catch (error: any) {
-      console.error("Error fetching portfolio:", error);
-      setError(`Failed to fetch portfolio: ${error.message}`);
-    }
-  };
+    };
 
-  // Only fetch portfolio if tokens are loaded
-  if (tokens.length > 0) {
-    fetchPortfolio();
-  }
-}, [oktoClient, selectedToken, config, tokens]); // Added tokens as dependency
+    // Only fetch portfolio if tokens are loaded
+    if (tokens.length > 0) {
+      fetchPortfolio();
+    }
+  }, [oktoClient, selectedToken, config, tokens]); // Added tokens as dependency
 
   // handle network change
   const handleNetworkChange = (e: any) => {
