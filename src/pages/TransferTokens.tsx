@@ -25,6 +25,8 @@ interface TokenOption {
   name: string;
   decimals: number;
   caipId: string;
+  networkId?: string;
+  networkName?: string;
 }
 
 interface ModalProps {
@@ -225,7 +227,7 @@ function TwoStepTokenTransfer() {
           const res = await explorer.getPortfolio(config.apiUrl, sessionConfig);
           console.log("Portfolio response in API mode:", res.data);
           data = res.data;
-          data.groupTokens = data.group_tokens;
+          data.groupTokens = data.group_tokens || data.groupTokens;
         } else {
           data = await getPortfolio(oktoClient);
         }
@@ -246,15 +248,21 @@ function TwoStepTokenTransfer() {
             address: t.address,
             name: t.name,
             caipId: t.caipId,
-            symbol: t.symbol
+            symbol: t.symbol,
+            networkId: t.networkId,
+            networkName: t.networkName
           });
           selectedChainTokens.add(t.symbol);
         });
 
-        // Build caipId to networkId mapping from the original tokens data
-        const allTokensData = config.mode === "api" ?
-          (await explorer.getTokens(config.apiUrl, getSessionConfig())).data.tokens :
-          await getTokens(oktoClient);
+        let allTokensData;
+        if (config.mode === "api") {
+          const sessionConfig = getSessionConfig();
+          const res = await explorer.getTokens(config.apiUrl, sessionConfig);
+          allTokensData = res.data.tokens;
+        } else {
+          allTokensData = await getTokens(oktoClient);
+        }
 
         allTokensData.forEach((token: any) => {
           const caipId = token.caipId || token.caip_id;
@@ -269,103 +277,100 @@ function TwoStepTokenTransfer() {
         const selectedChainNetworkInfo = caipIdToNetworkMap.get(selectedChain);
 
         data.groupTokens.forEach((group: any) => {
-          // Only process tokens that belong to the selected chain
-          const groupNetworkId = group.networkId;
-          const groupNetworkName = group.networkName;
+          const groupNetworkId = group.network_id || group.networkId;
+          const groupNetworkName = group.network_name || group.networkName;
+          const aggregationType = group.aggregation_type || group.aggregationType;
 
-          // Skip if this group doesn't belong to the selected chain's network
           if (!selectedChainNetworkInfo ||
             (groupNetworkId !== selectedChainNetworkInfo.networkId &&
               groupNetworkName !== selectedChainNetworkInfo.networkName)) {
             return;
           }
 
-          // Handle individual tokens (aggregationType === "token")
-          if (group.aggregationType === "token" && group.symbol) {
-            // Only process if this token symbol exists on selected chain
+          if (aggregationType === "token" && group.symbol) {
             if (!selectedChainTokens.has(group.symbol)) {
               return;
             }
 
             const compositeKey = `${group.symbol}_${selectedChain}`;
             const tokenInfo = tokenInfoMap.get(compositeKey);
-            let formattedBalance = group.viewBalance || "0";
+            let formattedBalance = group.view_balance || group.viewBalance || "0";
 
-            // If viewBalance is not available, calculate from raw balance
-            if (!group.viewBalance && group.balance && tokenInfo?.decimals) {
-              const rawBalance = typeof group.balance === 'string' ?
-                parseFloat(group.balance) : group.balance;
-              formattedBalance = (rawBalance / Math.pow(10, tokenInfo.decimals)).toString();
+            if (!formattedBalance || formattedBalance === "0") {
+              const rawBalance = group.balance;
+              if (rawBalance && tokenInfo?.decimals) {
+                const balanceNum = typeof rawBalance === 'string' ? parseFloat(rawBalance) : rawBalance;
+                formattedBalance = (balanceNum / Math.pow(10, tokenInfo.decimals)).toString();
+              }
             }
 
             tokenBalanceMap.set(group.symbol, {
               balance: parseFloat(formattedBalance) || 0,
-              usdtBalance: parseFloat(group.holdingsPriceUsdt || group.holdings_price_usdt || "0"),
-              inrBalance: parseFloat(group.holdingsPriceInr || group.holdings_price_inr || "0"),
+              usdtBalance: parseFloat(group.holdings_price_usdt || group.holdingsPriceUsdt || "0"),
+              inrBalance: parseFloat(group.holdings_price_inr || group.holdingsPriceInr || "0"),
               rawBalance: group.balance,
-              viewBalance: group.viewBalance,
+              viewBalance: group.view_balance || group.viewBalance,
               tokenInfo: tokenInfo,
               networkName: groupNetworkName,
               networkId: groupNetworkId
             });
           }
 
-          // Handle grouped tokens (aggregationType === "group")
-          if (group.aggregationType === "group" && group.tokens && group.tokens.length > 0) {
+          if (aggregationType === "group" && group.tokens && group.tokens.length > 0) {
             group.tokens.forEach((token: any) => {
-              // Only process if this token symbol exists on selected chain
               if (!selectedChainTokens.has(token.symbol)) {
                 return;
               }
 
               const compositeKey = `${token.symbol}_${selectedChain}`;
               const tokenInfo = tokenInfoMap.get(compositeKey);
-              let formattedBalance = token.viewBalance || "0";
+              let formattedBalance = token.view_balance || token.viewBalance || "0";
 
-              // If viewBalance is not available, calculate from raw balance
-              if (!token.viewBalance && token.balance && tokenInfo?.decimals) {
-                const rawBalance = typeof token.balance === 'string' ?
-                  parseFloat(token.balance) : token.balance;
-                formattedBalance = (rawBalance / Math.pow(10, tokenInfo.decimals)).toString();
+              if (!formattedBalance || formattedBalance === "0") {
+                const rawBalance = token.balance;
+                if (rawBalance && tokenInfo?.decimals) {
+                  const balanceNum = typeof rawBalance === 'string' ? parseFloat(rawBalance) : rawBalance;
+                  formattedBalance = (balanceNum / Math.pow(10, tokenInfo.decimals)).toString();
+                }
               }
+
+              const tokenNetworkId = token.network_id || token.networkId;
+              const tokenNetworkName = token.network_name || token.networkName;
 
               tokenBalanceMap.set(token.symbol, {
                 balance: parseFloat(formattedBalance) || 0,
-                usdtBalance: parseFloat(token.holdingsPriceUsdt || token.holdings_price_usdt || "0"),
-                inrBalance: parseFloat(token.holdingsPriceInr || token.holdings_price_inr || "0"),
+                usdtBalance: parseFloat(token.holdings_price_usdt || token.holdingsPriceUsdt || "0"),
+                inrBalance: parseFloat(token.holdings_price_inr || token.holdingsPriceInr || "0"),
                 rawBalance: token.balance,
-                viewBalance: token.viewBalance,
+                viewBalance: token.view_balance || token.viewBalance,
                 tokenInfo: tokenInfo,
-                networkName: groupNetworkName,
-                networkId: groupNetworkId
+                networkName: tokenNetworkName,
+                networkId: tokenNetworkId
               });
             });
           }
 
-          // Handle group-level balance (for tokens that are grouped but display group balance)
-          if (group.aggregationType === "group" && group.symbol && !group.tokens) {
-            // Only process if this token symbol exists on selected chain
+          if (aggregationType === "group" && group.symbol && !group.tokens) {
             if (!selectedChainTokens.has(group.symbol)) {
               return;
             }
 
             const compositeKey = `${group.symbol}_${selectedChain}`;
             const tokenInfo = tokenInfoMap.get(compositeKey);
-            let formattedBalance = group.viewBalance || group.balance || "0";
+            let formattedBalance = group.view_balance || group.viewBalance || group.balance || "0";
 
-            // Convert from raw balance if needed
-            if (group.balance && !group.viewBalance && tokenInfo?.decimals) {
-              const rawBalance = typeof group.balance === 'string' ?
+            if ((!group.view_balance && !group.viewBalance) && group.balance && tokenInfo?.decimals) {
+              const rawBalance = typeof group.balance === 'string' ? 
                 parseFloat(group.balance) : group.balance;
               formattedBalance = (rawBalance / Math.pow(10, tokenInfo.decimals)).toString();
             }
 
             tokenBalanceMap.set(group.symbol, {
               balance: parseFloat(formattedBalance) || 0,
-              usdtBalance: parseFloat(group.holdingsPriceUsdt || group.holdings_price_usdt || "0"),
-              inrBalance: parseFloat(group.holdingsPriceInr || group.holdings_price_inr || "0"),
+              usdtBalance: parseFloat(group.holdings_price_usdt || group.holdingsPriceUsdt || "0"),
+              inrBalance: parseFloat(group.holdings_price_inr || group.holdingsPriceInr || "0"),
               rawBalance: group.balance,
-              viewBalance: group.viewBalance,
+              viewBalance: group.view_balance || group.viewBalance,
               tokenInfo: tokenInfo,
               networkName: groupNetworkName,
               networkId: groupNetworkId
